@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — ReModelAI</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/dashboard.css" />
+</head>
+<body>
+
+<!-- ── Budget Alert Modal ─────────────────────────────────────── -->
+<div class="modal-overlay" id="budgetAlertModal">
+  <div class="modal">
+    <div class="modal-icon">🚨</div>
+    <h3 id="alertTitle">Budget Alert</h3>
+    <p id="alertMessage">A category has exceeded 90% of its budget.</p>
+    <div class="modal-actions">
+      <button class="btn btn-primary btn-sm" onclick="document.getElementById('budgetAlertModal').classList.remove('open')">View Budget</button>
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('budgetAlertModal').classList.remove('open')">Dismiss</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Layout ─────────────────────────────────────────────────── -->
+<div class="dash-layout">
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <a href="index.html" class="sidebar-logo">
+      <div class="sidebar-logo-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="9 22 9 12 15 12 15 22" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      ReModel<span style="background:var(--gradient-main);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">AI</span>
+    </a>
+
+    <div class="sidebar-nav">
+      <div class="sidebar-section">Main</div>
+
+      <button class="nav-item active" onclick="showPage('overview')">
+        <span class="nav-icon">⬛</span> Overview
+      </button>
+      <button class="nav-item" onclick="showPage('budget')">
+        <span class="nav-icon">💰</span> Budget Tracker
+        <span class="nav-badge">!</span>
+      </button>
+      <button class="nav-item" onclick="showPage('marketing')">
+        <span class="nav-icon">📣</span> Marketing Tools
+      </button>
+      <button class="nav-item" onclick="showPage('guides')">
+        <span class="nav-icon">📋</span> Planning Guides
+      </button>
+      <a href="room-scanner.html" class="nav-item">
+        <span class="nav-icon">📐</span> 3D Room Scanner
+        <span class="nav-badge" style="background:var(--accent-cyan)">New</span>
+      </a>
+
+      <div class="sidebar-section">Settings</div>
+
+      <button class="nav-item" onclick="window.ReModelAI&&window.ReModelAI.showToast('Settings coming soon!','info')">
+        <span class="nav-icon">⚙️</span> Settings
+      </button>
+      <a href="index.html" class="nav-item">
+        <span class="nav-icon">🏠</span> Back to Home
+      </a>
+    </div>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar">AJ</div>
+        <div class="user-info">
+          <div class="user-name">Alex Johnson</div>
+          <div class="user-plan">Growth Plan</div>
+        </div>
+        <span>⋯</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main content -->
+  <main class="dash-main">
+
+    <!-- Top Bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button style="background:none;border:none;color:var(--text-secondary);font-size:1.1rem;cursor:pointer;display:none;" id="sidebarToggle" onclick="document.getElementById('sidebar').classList.toggle('open')">☰</button>
+        <div>
+          <div class="topbar-business">Premier Renovations Co.</div>
+          <div class="topbar-breadcrumb" id="breadcrumb">Overview</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="topbar-search">
+          <span style="color:var(--text-muted);font-size:0.85rem;">🔍</span>
+          <input type="text" placeholder="Search projects…" />
+        </div>
+        <button class="icon-btn" title="Notifications" onclick="window.ReModelAI&&window.ReModelAI.showToast('3 new notifications','info')">
+          🔔
+          <span class="notif-dot"></span>
+        </button>
+        <button class="icon-btn" title="Help" onclick="document.getElementById('chatbotToggle').click()">💬</button>
+        <div class="topbar-avatar" title="Account settings">AJ</div>
+      </div>
+    </header>
+
+    <!-- Dashboard Content -->
+    <div class="dash-content">
+
+      <!-- ── OVERVIEW PAGE ───────────────────────────────────── -->
+      <div class="dash-page active" id="page-overview">
+
+        <!-- Scanner promo -->
+        <div class="scanner-promo">
+          <div class="scanner-promo-text">
+            <h3>📐 Try the AI Room Scanner</h3>
+            <p>Capture a room via webcam or enter dimensions to generate a 3D floor plan with AI layout suggestions and instant budget estimates.</p>
+          </div>
+          <a href="room-scanner.html" class="btn btn-primary">Open Room Scanner →</a>
+        </div>
+
+        <!-- Overview Cards -->
+        <div class="overview-cards">
+          <div class="overview-card">
+            <div class="card-label">Active Projects <span class="card-icon">🏗️</span></div>
+            <div class="card-value" id="ov-projects">14</div>
+            <div class="card-change change-up">↑ +3 this month</div>
+          </div>
+          <div class="overview-card">
+            <div class="card-label">Budget Used <span class="card-icon">💰</span></div>
+            <div class="card-value" id="ov-budget">73%</div>
+            <div class="card-change change-up">↑ $36.5k of $50k</div>
+          </div>
+          <div class="overview-card">
+            <div class="card-label">Tasks Complete <span class="card-icon">✅</span></div>
+            <div class="card-value" id="ov-tasks">87</div>
+            <div class="card-change change-up">↑ 61% of 142 total</div>
+          </div>
+          <div class="overview-card">
+            <div class="card-label">Leads Generated <span class="card-icon">📈</span></div>
+            <div class="card-value" id="ov-leads">23</div>
+            <div class="card-change change-up">↑ +8 this week</div>
+          </div>
+        </div>
+
+        <!-- Main grid -->
+        <div class="dash-grid">
+
+          <!-- Activity Feed -->
+          <div class="dash-card">
+            <div class="dash-card-header">
+              <span class="dash-card-title">Recent Activity</span>
+              <button class="dash-card-action" onclick="loadMoreActivity()">View all →</button>
+            </div>
+
+            <div id="activityFeed">
+              <div class="activity-item">
+                <div class="activity-dot dot-green"></div>
+                <div class="activity-text"><strong>Kitchen Remodel — Chen Residence</strong> reached 85% completion milestone. Final tile work begins tomorrow.</div>
+                <div class="activity-time">2m ago</div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot dot-yellow"></div>
+                <div class="activity-text"><strong>Budget Alert:</strong> Marketing category is at 82% of budget ($4,100 / $5,000). Consider reallocating funds.</div>
+                <div class="activity-time">14m ago</div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot dot-cyan"></div>
+                <div class="activity-text"><strong>New lead from Google Business:</strong> Sarah M. requesting bathroom renovation quote. Follow up via email.</div>
+                <div class="activity-time">1h ago</div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot dot-purple"></div>
+                <div class="activity-text"><strong>Permit approved</strong> for 142 Oak Street commercial renovation. Work can begin Monday.</div>
+                <div class="activity-time">3h ago</div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot dot-green"></div>
+                <div class="activity-text"><strong>Invoice #1042 paid</strong> — $8,500 received from Williams Salon buildout. Deposit recorded.</div>
+                <div class="activity-time">Yesterday</div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot dot-red"></div>
+                <div class="activity-text"><strong>Schedule conflict:</strong> Plumber and tile contractor both scheduled for Thursday PM at Rosewood job. Reschedule needed.</div>
+                <div class="activity-time">Yesterday</div>
+              </div>
+              <div class="activity-item">
+                <div class="activity-dot dot-cyan"></div>
+                <div class="activity-text"><strong>New 5-star Google review</strong> from Marcus T. — "Best contractor experience we've ever had."</div>
+                <div class="activity-time">2 days ago</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right column -->
+          <div style="display:flex;flex-direction:column;gap:20px;">
+
+            <!-- Budget Gauge -->
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <span class="dash-card-title">Overall Budget Health</span>
+                <button class="dash-card-action" onclick="showPage('budget')">Manage →</button>
+              </div>
+              <div class="budget-gauge-wrap">
+                <div class="gauge-container">
+                  <canvas id="gaugeCanvas" width="160" height="160"></canvas>
+                  <div class="gauge-text">
+                    <div class="gauge-percent" id="gaugePercent">73%</div>
+                    <div class="gauge-label">of $50,000</div>
+                  </div>
+                </div>
+                <div class="gauge-status gauge-yellow" id="gaugeStatus">⚠ Approaching Limit</div>
+              </div>
+            </div>
+
+            <!-- Quick Tools -->
+            <div class="dash-card">
+              <div class="dash-card-header">
+                <span class="dash-card-title">Quick Access</span>
+              </div>
+              <div class="quick-tools">
+                <button class="quick-tool" onclick="showPage('budget')">
+                  <span class="quick-tool-icon">💰</span>
+                  <span class="quick-tool-label">Budget</span>
+                </button>
+                <a href="room-scanner.html" class="quick-tool">
+                  <span class="quick-tool-icon">📐</span>
+                  <span class="quick-tool-label">Scanner</span>
+                </a>
+                <button class="quick-tool" onclick="showPage('marketing')">
+                  <span class="quick-tool-icon">📣</span>
+                  <span class="quick-tool-label">Marketing</span>
+                </button>
+                <button class="quick-tool" onclick="showPage('guides')">
+                  <span class="quick-tool-icon">📋</span>
+                  <span class="quick-tool-label">Guides</span>
+                </button>
+                <button class="quick-tool" onclick="document.getElementById('chatbotToggle').click()">
+                  <span class="quick-tool-icon">🤖</span>
+                  <span class="quick-tool-label">AI Chat</span>
+                </button>
+                <button class="quick-tool" onclick="BudgetTracker.exportSummary()">
+                  <span class="quick-tool-icon">📤</span>
+                  <span class="quick-tool-label">Export</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Projects overview row -->
+        <div class="dash-card" style="margin-bottom:20px;">
+          <div class="dash-card-header">
+            <span class="dash-card-title">Active Projects</span>
+            <button class="dash-card-action" onclick="window.ReModelAI&&window.ReModelAI.showToast('Full project manager coming soon!','info')">+ New Project</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.875rem;">
+              <thead>
+                <tr style="text-align:left;border-bottom:1px solid var(--border-color);">
+                  <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;">Project</th>
+                  <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;">Status</th>
+                  <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;">Progress</th>
+                  <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;">Budget</th>
+                  <th style="padding:8px 12px;color:var(--text-muted);font-weight:600;font-size:0.75rem;text-transform:uppercase;letter-spacing:0.06em;">Due</th>
+                </tr>
+              </thead>
+              <tbody id="projectsTable"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── BUDGET PAGE ─────────────────────────────────────── -->
+      <div class="dash-page" id="page-budget">
+        <h2 style="font-size:1.3rem;margin-bottom:20px;">💰 Budget Tracker</h2>
+
+        <div class="budget-grid">
+
+          <!-- Left: form + list -->
+          <div style="display:flex;flex-direction:column;gap:20px;">
+
+            <!-- Total budget input -->
+            <div class="budget-form-card">
+              <div class="dash-card-header" style="margin-bottom:16px;">
+                <span class="dash-card-title">Total Project Budget</span>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="totalBudgetInput">Total Budget ($)</label>
+                <input class="form-input" type="number" id="totalBudgetInput" value="50000" min="100" step="100" oninput="BudgetTracker.setTotalBudget(this.value)" />
+              </div>
+            </div>
+
+            <!-- Add category form -->
+            <div class="budget-form-card">
+              <div class="dash-card-title" style="margin-bottom:16px;">Add Expense Category</div>
+              <div class="form-group">
+                <label class="form-label" for="catSelect">Category</label>
+                <select class="form-select" id="catSelect">
+                  <option value="Renovation">Renovation</option>
+                  <option value="Equipment">Equipment</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="Permits">Permits</option>
+                  <option value="Labor">Labor</option>
+                  <option value="Other">Other</option>
+                  <option value="Custom">Custom…</option>
+                </select>
+              </div>
+              <div class="form-group" id="customNameGroup" style="display:none;">
+                <label class="form-label" for="customCatName">Custom Name</label>
+                <input class="form-input" type="text" id="customCatName" placeholder="e.g. Subcontractor" />
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div class="form-group">
+                  <label class="form-label" for="catBudget">Budget ($)</label>
+                  <input class="form-input" type="number" id="catBudget" placeholder="e.g. 5000" min="0" />
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="catSpent">Spent ($)</label>
+                  <input class="form-input" type="number" id="catSpent" placeholder="e.g. 2000" min="0" />
+                </div>
+              </div>
+              <button class="btn btn-primary" style="width:100%;" onclick="handleAddCategory()">+ Add Category</button>
+            </div>
+
+            <!-- Category list -->
+            <div class="budget-form-card">
+              <div class="dash-card-header" style="margin-bottom:16px;">
+                <span class="dash-card-title">Expense Categories</span>
+                <button class="dash-card-action" onclick="BudgetTracker.exportSummary()">Export Report</button>
+              </div>
+              <div id="budgetList"></div>
+            </div>
+
+            <!-- Summary -->
+            <div class="budget-form-card">
+              <div class="dash-card-title" style="margin-bottom:16px;">Budget Summary</div>
+              <div class="budget-summary">
+                <div class="summary-item">
+                  <div class="summary-val" id="summarySpent" style="color:var(--accent-cyan);">$0</div>
+                  <div class="summary-lbl">Total Spent</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-val" id="summaryRemaining" style="color:var(--success);">$0</div>
+                  <div class="summary-lbl">Remaining</div>
+                </div>
+                <div class="summary-item">
+                  <div class="summary-val" id="summaryProjected">$0</div>
+                  <div class="summary-lbl">Projected Final</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Right: donut chart + gauge -->
+          <div style="display:flex;flex-direction:column;gap:20px;">
+
+            <div class="dash-card">
+              <div class="dash-card-title" style="margin-bottom:20px;">Spending Breakdown</div>
+              <div class="donut-wrap">
+                <canvas id="donutCanvas" style="width:240px;height:240px;"></canvas>
+                <div class="donut-legend" id="donutLegend"></div>
+              </div>
+            </div>
+
+            <div class="dash-card">
+              <div class="dash-card-title" style="margin-bottom:16px;">Budget Health Gauge</div>
+              <div class="budget-gauge-wrap">
+                <div class="gauge-container">
+                  <canvas id="gaugeCanvas2" width="160" height="160"></canvas>
+                  <div class="gauge-text">
+                    <div class="gauge-percent" id="gaugePercent2">73%</div>
+                    <div class="gauge-label">of budget</div>
+                  </div>
+                </div>
+                <div class="gauge-status gauge-yellow" id="gaugeStatus2">⚠ Approaching Limit</div>
+              </div>
+            </div>
+
+            <div class="dash-card">
+              <div class="dash-card-title" style="margin-bottom:12px;">Color Guide</div>
+              <div style="display:flex;flex-direction:column;gap:8px;font-size:0.82rem;">
+                <div style="display:flex;align-items:center;gap:10px;"><div style="width:10px;height:10px;border-radius:50%;background:#10b981;"></div><span style="color:var(--text-secondary);">Under 70% — On Track</span></div>
+                <div style="display:flex;align-items:center;gap:10px;"><div style="width:10px;height:10px;border-radius:50%;background:#f59e0b;"></div><span style="color:var(--text-secondary);">70–90% — Warning Zone</span></div>
+                <div style="display:flex;align-items:center;gap:10px;"><div style="width:10px;height:10px;border-radius:50%;background:#ef4444;"></div><span style="color:var(--text-secondary);">Over 90% — Overrun Alert</span></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MARKETING PAGE ──────────────────────────────────── -->
+      <div class="dash-page" id="page-marketing">
+        <h2 style="font-size:1.3rem;margin-bottom:20px;">📣 Marketing Tools</h2>
+
+        <div class="marketing-grid">
+
+          <!-- Social Post Generator -->
+          <div class="marketing-card">
+            <div class="mkt-card-title">📱 Social Post Generator</div>
+            <div class="form-group">
+              <label class="form-label">Platform</label>
+              <select class="form-select" id="postPlatform">
+                <option value="facebook">Facebook</option>
+                <option value="instagram">Instagram</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Business Type</label>
+              <select class="form-select" id="postBizType">
+                <option>Kitchen</option>
+                <option>Bathroom</option>
+                <option>Salon</option>
+                <option>Office</option>
+                <option>Restaurant</option>
+                <option>Retail</option>
+                <option>General</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Your Business Name</label>
+              <input class="form-input" type="text" id="postBizName" placeholder="e.g. Premier Renovations Co." />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="generateSocialPost()">✦ Generate Post</button>
+            <div class="post-output" id="postOutput" style="margin-top:12px;min-height:80px;color:var(--text-muted);font-style:italic;">Your generated post will appear here…</div>
+            <button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%;" onclick="copyPost()">📋 Copy Post</button>
+          </div>
+
+          <!-- Business Name Generator -->
+          <div class="marketing-card">
+            <div class="mkt-card-title">🏷️ Business Name Generator</div>
+            <div class="form-group">
+              <label class="form-label">Keyword (optional)</label>
+              <input class="form-input" type="text" id="nameKeyword" placeholder="e.g. Premier, Craft, Renew…" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="generateNames()">✦ Generate Names</button>
+            <div class="name-result" id="nameResult" style="margin-top:12px;">
+              <span style="color:var(--text-muted);font-size:0.82rem;font-style:italic;">Generated names will appear here…</span>
+            </div>
+            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:10px;">Click a name to copy it to clipboard.</p>
+
+            <div style="border-top:1px solid var(--border-color);margin-top:20px;padding-top:16px;">
+              <div class="mkt-card-title" style="margin-bottom:12px;">🎨 Brand Color Palette</div>
+              <div class="form-group">
+                <label class="form-label">Business Type</label>
+                <select class="form-select" id="paletteType">
+                  <option>Kitchen</option>
+                  <option>Bathroom</option>
+                  <option>Salon</option>
+                  <option>Office</option>
+                  <option>Restaurant</option>
+                  <option>Retail</option>
+                  <option>General</option>
+                </select>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="generatePalette()">✦ Generate Palette</button>
+              <div class="color-palette" id="colorPalette" style="margin-top:12px;">
+                <span style="color:var(--text-muted);font-size:0.82rem;font-style:italic;">Click to generate a palette…</span>
+              </div>
+              <p style="font-size:0.75rem;color:var(--text-muted);margin-top:8px;">Click any swatch to copy the hex code.</p>
+            </div>
+          </div>
+
+          <!-- SEO Keywords -->
+          <div class="marketing-card">
+            <div class="mkt-card-title">🔍 SEO Keyword Suggestions</div>
+            <div class="form-group">
+              <label class="form-label">Business Type</label>
+              <select class="form-select" id="seoType">
+                <option>Kitchen</option>
+                <option>Bathroom</option>
+                <option>Salon</option>
+                <option>Office</option>
+                <option>Restaurant</option>
+                <option>Retail</option>
+                <option>General</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Your City (optional)</label>
+              <input class="form-input" type="text" id="seoCity" placeholder="e.g. Portland" />
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="generateSEO()">✦ Get Keywords</button>
+            <div class="seo-tags" id="seoTags" style="margin-top:12px;">
+              <span style="color:var(--text-muted);font-size:0.82rem;font-style:italic;">Click to generate keywords…</span>
+            </div>
+            <p style="font-size:0.75rem;color:var(--text-muted);margin-top:10px;">Click any keyword to copy it.</p>
+          </div>
+
+          <!-- 30-Day Launch Checklist -->
+          <div class="marketing-card">
+            <div class="dash-card-header" style="margin-bottom:16px;">
+              <span class="mkt-card-title">📅 30-Day Launch Checklist</span>
+              <button class="btn btn-ghost btn-sm" onclick="MarketingTools.printChecklist()">🖨️ Print</button>
+            </div>
+            <div id="checklistContent"></div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ── PLANNING GUIDES PAGE ───────────────────────────── -->
+      <div class="dash-page" id="page-guides">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+          <h2 style="font-size:1.3rem;">📋 Planning Guides</h2>
+          <button class="btn btn-ghost btn-sm" onclick="printGuides()">🖨️ Print All Guides</button>
+        </div>
+
+        <div class="accordion" id="planningAccordion">
+
+          <div class="accordion-item" data-guide="permits">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+              <div class="accordion-title">
+                <span class="accordion-icon">📋</span>
+                <div>
+                  <div class="accordion-label">Permits & Licensing</div>
+                  <div class="accordion-meta">
+                    <span class="accordion-tag">⏱ 2–6 weeks</span>
+                    <span class="accordion-tag">💲$200–$2,000</span>
+                  </div>
+                </div>
+              </div>
+              <span class="accordion-arrow">▼</span>
+            </div>
+            <div class="accordion-body">
+              <div class="accordion-body-inner" id="guide-permits"></div>
+            </div>
+          </div>
+
+          <div class="accordion-item" data-guide="timeline">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+              <div class="accordion-title">
+                <span class="accordion-icon">🏗️</span>
+                <div>
+                  <div class="accordion-label">Construction Timeline</div>
+                  <div class="accordion-meta">
+                    <span class="accordion-tag">⏱ 2–12 weeks</span>
+                    <span class="accordion-tag">💲Project dependent</span>
+                  </div>
+                </div>
+              </div>
+              <span class="accordion-arrow">▼</span>
+            </div>
+            <div class="accordion-body">
+              <div class="accordion-body-inner" id="guide-timeline"></div>
+            </div>
+          </div>
+
+          <div class="accordion-item" data-guide="hiring">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+              <div class="accordion-title">
+                <span class="accordion-icon">👥</span>
+                <div>
+                  <div class="accordion-label">Hiring Staff</div>
+                  <div class="accordion-meta">
+                    <span class="accordion-tag">⏱ 2–4 weeks</span>
+                    <span class="accordion-tag">💲$200–$800 per hire</span>
+                  </div>
+                </div>
+              </div>
+              <span class="accordion-arrow">▼</span>
+            </div>
+            <div class="accordion-body">
+              <div class="accordion-body-inner" id="guide-hiring"></div>
+            </div>
+          </div>
+
+          <div class="accordion-item" data-guide="grand-opening">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+              <div class="accordion-title">
+                <span class="accordion-icon">🎉</span>
+                <div>
+                  <div class="accordion-label">Grand Opening</div>
+                  <div class="accordion-meta">
+                    <span class="accordion-tag">⏱ 30 days prep</span>
+                    <span class="accordion-tag">💲$500–$3,000</span>
+                  </div>
+                </div>
+              </div>
+              <span class="accordion-arrow">▼</span>
+            </div>
+            <div class="accordion-body">
+              <div class="accordion-body-inner" id="guide-grand-opening"></div>
+            </div>
+          </div>
+
+          <div class="accordion-item" data-guide="online">
+            <div class="accordion-header" onclick="toggleAccordion(this)">
+              <div class="accordion-title">
+                <span class="accordion-icon">🌐</span>
+                <div>
+                  <div class="accordion-label">Online Presence</div>
+                  <div class="accordion-meta">
+                    <span class="accordion-tag">⏱ 1–2 weeks</span>
+                    <span class="accordion-tag">💲$0–$1,200/year</span>
+                  </div>
+                </div>
+              </div>
+              <span class="accordion-arrow">▼</span>
+            </div>
+            <div class="accordion-body">
+              <div class="accordion-body-inner" id="guide-online"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- end dash-content -->
+  </main>
+</div>
+
+<!-- ── Chatbot ─────────────────────────────────────────────────── -->
+<button class="chatbot-toggle" id="chatbotToggle" aria-label="Open AI Assistant">
+  <span id="chatIcon">🤖</span>
+  <div class="chatbot-badge" id="chatBadge">1</div>
+</button>
+<div class="chatbot-panel" id="chatbotPanel">
+  <div class="chat-header">
+    <div class="chat-avatar">🤖</div>
+    <div class="chat-info">
+      <h4>ReModelAI Assistant</h4>
+      <div class="chat-status"><span class="status-dot"></span> Online</div>
+    </div>
+    <button class="chat-close" id="chatClose">✕</button>
+  </div>
+  <div class="chat-quick-btns" id="quickBtns">
+    <button class="quick-btn" onclick="sendQuick('What permits do I need?')">📋 Permits</button>
+    <button class="quick-btn" onclick="sendQuick('How do I market my business?')">📣 Marketing</button>
+    <button class="quick-btn" onclick="sendQuick('What\'s my ROI estimate?')">💰 ROI</button>
+    <button class="quick-btn" onclick="sendQuick('How do I hire staff?')">👥 Hiring</button>
+    <button class="quick-btn" onclick="sendQuick('Help with cash flow')">💳 Cash Flow</button>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-area">
+    <input type="text" class="chat-input" id="chatInput" placeholder="Ask anything about your business…" maxlength="300" />
+    <button class="chat-send" id="chatSend">➤</button>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="js/app.js"></script>
+<script src="js/chatbot.js"></script>
+<script src="js/budget.js"></script>
+<script src="js/marketing.js"></script>
+
+<script>
+// ── Page Navigation ─────────────────────────────────────────
+const pageTitles = { overview:'Overview', budget:'Budget Tracker', marketing:'Marketing Tools', guides:'Planning Guides' };
+
+function showPage(id) {
+  document.querySelectorAll('.dash-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    if (btn.getAttribute('onclick') === `showPage('${id}')`) btn.classList.add('active');
+  });
+
+  const bc = document.getElementById('breadcrumb');
+  if (bc) bc.textContent = pageTitles[id] || id;
+
+  // Lazy-init charts when budget page shown
+  if (id === 'budget') {
+    setTimeout(() => {
+      BudgetTracker.init();
+      // Wire up secondary gauge
+      const gc2 = document.getElementById('gaugeCanvas2');
+      if (gc2) {
+        // Clone state into second gauge
+        const st = BudgetTracker.getState();
+        const spent = st.categories.reduce((s,c) => s + c.spent, 0);
+        const pct   = Math.min(spent / st.totalBudget, 1);
+        drawSimpleGauge('gaugeCanvas2', 'gaugePercent2', 'gaugeStatus2', pct);
+      }
+    }, 50);
+  }
+
+  if (id === 'marketing') {
+    MarketingTools.renderChecklist('checklistContent');
+  }
+
+  if (id === 'guides') {
+    renderAllGuides();
+  }
+}
+
+function drawSimpleGauge(canvasId, percentId, statusId, pct) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const size = 160;
+  canvas.width = size; canvas.height = size;
+  const cx = size/2, cy = size/2, r = 65, lw = 14;
+
+  ctx.clearRect(0, 0, size, size);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, 2*Math.PI);
+  ctx.strokeStyle = '#2d3a5a'; ctx.lineWidth = lw; ctx.stroke();
+
+  const color = pct < 0.7 ? '#10b981' : pct < 0.9 ? '#f59e0b' : '#ef4444';
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, pct * 2 * Math.PI);
+  ctx.strokeStyle = color; ctx.lineWidth = lw; ctx.lineCap = 'round'; ctx.stroke();
+
+  const pEl = document.getElementById(percentId);
+  const sEl = document.getElementById(statusId);
+  if (pEl) pEl.textContent = Math.round(pct*100) + '%';
+  if (sEl) {
+    sEl.className = 'gauge-status ';
+    if (pct < 0.7) { sEl.textContent = '✓ On Track'; sEl.className += 'gauge-green'; }
+    else if (pct < 0.9) { sEl.textContent = '⚠ Approaching Limit'; sEl.className += 'gauge-yellow'; }
+    else { sEl.textContent = '🚨 Over Threshold'; sEl.className += 'gauge-red'; }
+  }
+}
+
+// ── Budget form helpers ─────────────────────────────────────
+document.getElementById('catSelect').addEventListener('change', function() {
+  const cg = document.getElementById('customNameGroup');
+  cg.style.display = this.value === 'Custom' ? 'block' : 'none';
+});
+
+function handleAddCategory() {
+  const selectEl  = document.getElementById('catSelect');
+  const customEl  = document.getElementById('customCatName');
+  const budgetEl  = document.getElementById('catBudget');
+  const spentEl   = document.getElementById('catSpent');
+
+  const name   = selectEl.value === 'Custom' ? customEl.value.trim() : selectEl.value;
+  const budget = parseFloat(budgetEl.value);
+  const spent  = parseFloat(spentEl.value) || 0;
+
+  if (!name) { window.ReModelAI.showToast('Please enter a category name.','warning'); return; }
+  if (!budget || budget <= 0) { window.ReModelAI.showToast('Please enter a valid budget amount.','warning'); return; }
+
+  const added = BudgetTracker.addCategory(name, budget, spent);
+  if (added) {
+    budgetEl.value = '';
+    spentEl.value  = '';
+    if (selectEl.value === 'Custom') customEl.value = '';
+    // Sync gauge
+    const st = BudgetTracker.getState();
+    const totalSpent = st.categories.reduce((s,c) => s+c.spent, 0);
+    drawSimpleGauge('gaugeCanvas2', 'gaugePercent2', 'gaugeStatus2', Math.min(totalSpent/st.totalBudget, 1));
+  }
+}
+
+// ── Marketing tool wrappers ─────────────────────────────────
+function generateSocialPost() {
+  const platform = document.getElementById('postPlatform').value;
+  const bizType  = document.getElementById('postBizType').value;
+  const bizName  = document.getElementById('postBizName').value;
+  const post = MarketingTools.generatePost(platform, bizType, bizName);
+  MarketingTools.renderPostOutput('postOutput', post);
+}
+
+function copyPost() {
+  const el = document.getElementById('postOutput');
+  if (!el || !el.textContent || el.textContent.includes('will appear here')) return;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(el.textContent).then(() => window.ReModelAI.showToast('Post copied to clipboard!','success'));
+  }
+}
+
+function generateNames() {
+  const kw = document.getElementById('nameKeyword').value;
+  const names = MarketingTools.generateNames(kw);
+  MarketingTools.renderNameResults('nameResult', names);
+}
+
+function generatePalette() {
+  const type = document.getElementById('paletteType').value;
+  const colors = MarketingTools.getPalette(type);
+  MarketingTools.renderPalette('colorPalette', colors);
+}
+
+function generateSEO() {
+  const type = document.getElementById('seoType').value;
+  const city = document.getElementById('seoCity').value;
+  const kws  = MarketingTools.getKeywords(type, city);
+  MarketingTools.renderKeywords('seoTags', kws);
+}
+
+// ── Planning Guides data and render ─────────────────────────
+const guidesData = {
+  'permits': [
+    { title:'Research State Requirements', desc:'Visit your state\'s contractor licensing board website. Look up required licenses for general contractor work in your state and city.', time:'1 day', cost:'Free' },
+    { title:'Register Your Business', desc:'File your LLC or sole proprietorship with your state. Get your EIN from IRS.gov at no cost. This is required before applying for most licenses.', time:'1–3 days', cost:'$50–$500' },
+    { title:'Apply for Contractor\'s License', desc:'Complete your state exam application, schedule the exam, and pay the fee. Most states require proof of insurance before issuing a license.', time:'2–4 weeks', cost:'$100–$500' },
+    { title:'Get General Liability Insurance', desc:'Contact 3+ insurers for quotes. Get at least $1M coverage. Provide your license number and business information. Shop BizInsure, Hiscox, or a local broker.', time:'1–3 days', cost:'$500–$2,000/yr' },
+    { title:'Pull Building Permits', desc:'For each project, apply at your local building department. Submit plans for structural, electrical, or plumbing work. Budget 1–3 weeks for permit approval.', time:'1–3 weeks', cost:'$50–$2,000 each' },
+    { title:'Schedule Required Inspections', desc:'Book inspections at rough-in and final stages. Failing to call for inspections can result in having to open up walls and redo work.', time:'Per project', cost:'Included in permit' }
+  ],
+  'timeline': [
+    { title:'Pre-Construction Planning', desc:'Finalize scope of work, complete design/drawings, confirm materials are ordered. Do a detailed walkthrough with client. Confirm permit is approved.', time:'1–2 weeks', cost:'$0' },
+    { title:'Site Preparation & Demo', desc:'Protect adjacent areas, demo old materials, remove debris. Order a dumpster. Verify rough utilities locations before demo begins.', time:'1–3 days', cost:'$300–$1,500' },
+    { title:'Rough-In Work', desc:'Complete all structural modifications, rough electrical, plumbing, and HVAC before closing walls. Schedule rough-in inspection with building department.', time:'3–7 days', cost:'$2,000–$15,000' },
+    { title:'Insulation & Drywall', desc:'Install insulation, hang and tape drywall. First and second coats of mud with drying time between coats.', time:'3–5 days', cost:'$1,000–$5,000' },
+    { title:'Finish Work', desc:'Install cabinets, flooring, tile, fixtures, trim, and hardware. This phase takes the most time — quality finish work cannot be rushed.', time:'1–4 weeks', cost:'$3,000–$30,000' },
+    { title:'Final Inspection & Punch List', desc:'Walk through with client to create punch list of items to address. Schedule final building inspection. Touch-ups, cleaning, and client handoff.', time:'1–3 days', cost:'$0' }
+  ],
+  'hiring': [
+    { title:'Define the Role Before Posting', desc:'Write a detailed job description with required skills, certifications, pay range, and schedule. Vague posts attract unqualified applicants.', time:'1 day', cost:'$0' },
+    { title:'Choose Where to Post', desc:'Post on Indeed, Craigslist (Skilled Trades section), local trade school job boards, and Facebook community groups. Referrals from existing crew are often best.', time:'1 day', cost:'$0–$150' },
+    { title:'Screen Applications', desc:'Review resumes for relevant experience and certifications. Conduct a brief 10-minute phone screen to verify availability and wage expectations before in-person interviews.', time:'2–5 days', cost:'$0' },
+    { title:'In-Person Interview + Skills Test', desc:'Meet at a jobsite or office. Conduct a simple skills assessment relevant to the role. Check references from at least 2 previous employers.', time:'1–2 days', cost:'$0' },
+    { title:'Background Check & Verification', desc:'Run a background check through Checkr or similar service. Verify any certifications (OSHA 10, trade licenses). Confirm eligibility to work in the US (I-9).', time:'1–3 days', cost:'$30–$60' },
+    { title:'Onboarding & Training', desc:'Complete new hire paperwork (W4, I-9, direct deposit). Review safety policies, company standards, and job expectations. Shadow senior crew for first week.', time:'1 week', cost:'$0' }
+  ],
+  'grand-opening': [
+    { title:'Set a Launch Date 30 Days Out', desc:'Give yourself 30 days minimum to prepare. Announce the date on social media immediately to build anticipation. Choose a Tuesday–Thursday for business-to-business launches.', time:'Day 1', cost:'$0' },
+    { title:'Create Your Digital Presence', desc:'Set up Google Business Profile, Facebook Business page, and Instagram. Upload 10+ high-quality project photos before launch. Optimize for local search keywords.', time:'Week 1', cost:'$0–$200' },
+    { title:'List on Lead Platforms', desc:'Create profiles on Houzz, Angi, Thumbtack, and HomeAdvisor. Fill out every field completely — fully completed profiles get 3x more leads than partial ones.', time:'Week 1–2', cost:'$0 to start' },
+    { title:'Launch Promotions', desc:'Offer a "founding client discount" of 10–15% for the first 5 jobs. Create urgency with a deadline. Promote via email, social, and Nextdoor neighborhood groups.', time:'Week 2', cost:'$100–$500' },
+    { title:'Network with Referral Partners', desc:'Contact 10 local real estate agents, 5 interior designers, and 3 property managers. Offer referral fees of $100–$300 per job. These relationships compound over time.', time:'Week 2–3', cost:'Referral fees' },
+    { title:'Launch Day & First Client Reviews', desc:'Complete your first job or showcase your work at a launch event. Immediately ask clients for Google reviews via direct text link. 5 reviews in week 1 dramatically boosts local ranking.', time:'Week 4', cost:'$0–$1,000' }
+  ],
+  'online': [
+    { title:'Claim & Optimize Google Business Profile', desc:'Go to business.google.com. Add photos, services, business hours, and respond to every review. This is the #1 driver of local search leads for contractors.', time:'2 hours', cost:'Free' },
+    { title:'Build or Launch Your Website', desc:'Use ReModelAI website builder (included in your plan) or Squarespace/Wix. Must-have pages: Home, Services, Gallery (before/after), About, Contact. Go live within 7 days.', time:'3–7 days', cost:'$0–$25/mo' },
+    { title:'Set Up Social Media Accounts', desc:'Create Facebook Business and Instagram business accounts. Post immediately with your best project photos. Include your phone number and website link in every bio.', time:'1 day', cost:'Free' },
+    { title:'Local SEO Optimization', desc:'Add your city and neighborhood names to your website page titles and meta descriptions. Build citations on Yelp, Yellow Pages, and BBB. Consistency in NAP (name, address, phone) across all platforms.', time:'1 week', cost:'Free–$200/mo' },
+    { title:'Content Marketing', desc:'Post 3x/week on Instagram with before/after photos, in-progress shots, and team photos. Post on Facebook 2x/week. Google rewards businesses that consistently add new content.', time:'Ongoing', cost:'$0 (your time)' },
+    { title:'Paid Advertising Launch', desc:'Start with $200–$500/month on Google Local Service Ads or Facebook Ads targeting your ZIP codes. Google LSAs appear above regular search results and only charge per lead.', time:'1 day setup', cost:'$200–$1,000/mo' }
+  ]
+};
+
+function renderAllGuides() {
+  Object.keys(guidesData).forEach(key => {
+    const el = document.getElementById(`guide-${key}`);
+    if (!el) return;
+    el.innerHTML = guidesData[key].map((step, i) => `
+      <div class="guide-step">
+        <div class="step-num">${i+1}</div>
+        <div class="step-content">
+          <div class="step-title">${step.title}</div>
+          <div class="step-desc">${step.desc}</div>
+          <div class="step-meta">
+            <span class="step-badge">⏱ ${step.time}</span>
+            <span class="step-badge">💲${step.cost}</span>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  });
+}
+
+function toggleAccordion(header) {
+  const item = header.closest('.accordion-item');
+  const body = item.querySelector('.accordion-body');
+  const isOpen = item.classList.contains('open');
+
+  // Close all
+  document.querySelectorAll('.accordion-item').forEach(a => {
+    a.classList.remove('open');
+    const b = a.querySelector('.accordion-body');
+    if (b) b.style.maxHeight = '0';
+  });
+
+  if (!isOpen) {
+    item.classList.add('open');
+    body.style.maxHeight = body.scrollHeight + 'px';
+    // Re-check after inner content loads
+    setTimeout(() => { body.style.maxHeight = body.scrollHeight + 300 + 'px'; }, 50);
+  }
+}
+
+function printGuides() {
+  const win = window.open('', '_blank');
+  let html = `<!DOCTYPE html><html><head><title>ReModelAI Planning Guides</title>
+  <style>
+    body{font-family:system-ui;max-width:800px;margin:40px auto;color:#1a1a2e}
+    h1{margin-bottom:8px}h2{font-size:1.1rem;margin:24px 0 12px;border-bottom:2px solid #7c3aed;padding-bottom:6px}
+    .step{display:flex;gap:14px;padding:10px 0;border-bottom:1px solid #eee}
+    .num{width:28px;height:28px;background:#7c3aed;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0;margin-top:1px}
+    .meta{display:flex;gap:10px;margin-top:4px;font-size:0.75rem;color:#666}
+    .badge{background:#eee;padding:2px 8px;border-radius:99px}
+    @media print{button{display:none}}
+  </style></head><body>
+  <h1>🏠 ReModelAI Planning Guides</h1>
+  <p style="color:#666;">Generated ${new Date().toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'})}</p>
+  `;
+  const titles = { permits:'Permits & Licensing', timeline:'Construction Timeline', hiring:'Hiring Staff', 'grand-opening':'Grand Opening', online:'Online Presence' };
+  Object.keys(guidesData).forEach(key => {
+    html += `<h2>${titles[key] || key}</h2>`;
+    guidesData[key].forEach((step, i) => {
+      html += `<div class="step"><div class="num">${i+1}</div><div><strong>${step.title}</strong><p style="margin:4px 0;color:#555;font-size:0.88rem;">${step.desc}</p><div class="meta"><span class="badge">⏱ ${step.time}</span><span class="badge">💲${step.cost}</span></div></div></div>`;
+    });
+  });
+  html += `<p style="color:#aaa;font-size:0.75rem;margin-top:40px;border-top:1px solid #eee;padding-top:12px;">ReModelAI — remodelai.io</p>
+  <button onclick="window.print()" style="background:#7c3aed;color:#fff;border:none;padding:10px 24px;border-radius:8px;cursor:pointer;margin-top:12px;">Print</button>
+  </body></html>`;
+  win.document.write(html);
+  win.document.close();
+}
+
+function loadMoreActivity() {
+  const feed = document.getElementById('activityFeed');
+  const more = [
+    { dot:'dot-purple', text:'<strong>3D Room Scan</strong> completed for Sunrise Cafe renovation. Floor plan saved to project files.', time:'3 days ago' },
+    { dot:'dot-green',  text:'<strong>Final payment received</strong> — Henderson Bathroom Remodel complete. $12,400 collected.', time:'4 days ago' },
+    { dot:'dot-cyan',   text:'<strong>Google Review:</strong> 5 stars from Lisa & Tom P. — "Exceptional quality and always on time."', time:'5 days ago' }
+  ];
+  more.forEach(item => {
+    const div = document.createElement('div');
+    div.className = 'activity-item';
+    div.innerHTML = `<div class="activity-dot ${item.dot}"></div><div class="activity-text">${item.text}</div><div class="activity-time">${item.time}</div>`;
+    feed.appendChild(div);
+  });
+  window.ReModelAI && window.ReModelAI.showToast('Loaded more activity.', 'info', 2000);
+}
+
+// ── Projects table ───────────────────────────────────────────
+const projects = [
+  { name:'Chen Kitchen Remodel',     status:'In Progress',  progress:85, budget:'$28,500', due:'May 30', statusColor:'#06b6d4' },
+  { name:'Williams Salon Buildout',  status:'In Progress',  progress:42, budget:'$18,200', due:'Jun 12', statusColor:'#06b6d4' },
+  { name:'142 Oak St. Commercial',   status:'Planning',     progress:15, budget:'$65,000', due:'Jul 8',  statusColor:'#f59e0b' },
+  { name:'Rosewood Master Bath',     status:'In Progress',  progress:68, budget:'$14,800', due:'May 22', statusColor:'#06b6d4' },
+  { name:'Patel Home Office',        status:'Completed',    progress:100,budget:'$9,400',  due:'Done',   statusColor:'#10b981' },
+  { name:'Downtown Retail Buildout', status:'Bidding',      progress:0,  budget:'TBD',     due:'TBD',    statusColor:'#7c3aed' }
+];
+
+function renderProjectsTable() {
+  const tbody = document.getElementById('projectsTable');
+  if (!tbody) return;
+  tbody.innerHTML = projects.map(p => `
+    <tr style="border-bottom:1px solid var(--border-color);transition:background 0.15s;" onmouseover="this.style.background='rgba(124,58,237,0.05)'" onmouseout="this.style.background='transparent'">
+      <td style="padding:12px;font-weight:600;color:var(--text-primary);">${p.name}</td>
+      <td style="padding:12px;">
+        <span style="background:${p.statusColor}22;color:${p.statusColor};border:1px solid ${p.statusColor}44;padding:3px 10px;border-radius:99px;font-size:0.72rem;font-weight:700;">${p.status}</span>
+      </td>
+      <td style="padding:12px;min-width:130px;">
+        <div style="height:5px;background:var(--bg-elevated);border-radius:99px;overflow:hidden;">
+          <div style="height:100%;width:${p.progress}%;background:${p.progress===100?'#10b981':'linear-gradient(90deg,#7c3aed,#06b6d4)'};border-radius:99px;"></div>
+        </div>
+        <span style="font-size:0.72rem;color:var(--text-muted);margin-top:2px;display:block;">${p.progress}%</span>
+      </td>
+      <td style="padding:12px;color:var(--text-secondary);">${p.budget}</td>
+      <td style="padding:12px;color:var(--text-secondary);font-size:0.85rem;">${p.due}</td>
+    </tr>
+  `).join('');
+}
+
+// ── Sidebar toggle for mobile ────────────────────────────────
+window.addEventListener('resize', () => {
+  const toggle = document.getElementById('sidebarToggle');
+  if (toggle) toggle.style.display = window.innerWidth < 900 ? 'block' : 'none';
+});
+window.dispatchEvent(new Event('resize'));
+
+// ── Init ──────────────────────────────────────────────────────
+BudgetTracker.init();
+renderProjectsTable();
+renderAllGuides();
+
+// Draw main gauge
+const st = BudgetTracker.getState();
+const ts = st.categories.reduce((s,c) => s+c.spent, 0);
+drawSimpleGauge('gaugeCanvas', 'gaugePercent', 'gaugeStatus', Math.min(ts/st.totalBudget, 1));
+</script>
+</body>
+</html>

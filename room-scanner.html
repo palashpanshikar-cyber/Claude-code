@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>3D Room Scanner — ReModelAI</title>
+  <link rel="stylesheet" href="css/main.css" />
+  <link rel="stylesheet" href="css/scanner.css" />
+</head>
+<body>
+
+<!-- ── Nav ─────────────────────────────────────────────────── -->
+<nav class="navbar scrolled" id="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="9 22 9 12 15 12 15 22" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      ReModel<span class="gradient-text">AI</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="index.html">Home</a></li>
+      <li><a href="dashboard.html">Dashboard</a></li>
+      <li><a href="index.html#pricing">Pricing</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a href="dashboard.html" class="btn btn-primary btn-sm">Open Dashboard</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── Main Scanner Layout ──────────────────────────────────── -->
+<div class="scanner-layout">
+
+  <!-- Left: Main scanner content -->
+  <div class="scanner-main">
+
+    <!-- Camera capture card -->
+    <div class="scanner-card">
+      <div class="scanner-header">
+        <div class="scanner-title-group">
+          <h2>📐 AI Room Scanner</h2>
+          <p>Webcam capture or manual dimensions → instant 3D floor plan with AI layout suggestions</p>
+        </div>
+        <div class="scanner-actions">
+          <button class="btn btn-primary btn-sm" id="scanBtn">
+            <span>📷</span> Scan Room via Camera
+          </button>
+          <button class="btn btn-secondary btn-sm" id="generateBtn">
+            ✦ Generate 3D Floor Plan
+          </button>
+        </div>
+      </div>
+
+      <!-- Camera view -->
+      <div class="camera-wrap" id="cameraWrap">
+        <video id="cameraFeed" autoplay playsinline muted></video>
+
+        <div class="camera-placeholder" id="cameraPlaceholder">
+          <div class="camera-placeholder-icon">📷</div>
+          <div class="camera-placeholder-text">Click "Scan Room via Camera" to capture using your webcam, or enter dimensions below and click "Generate 3D Floor Plan"</div>
+        </div>
+
+        <!-- Scan overlay -->
+        <div class="scan-overlay" id="scanOverlay">
+          <div class="scan-line"></div>
+          <div class="scan-corners">
+            <div class="corner-br"></div>
+            <div class="corner-bl"></div>
+          </div>
+          <div class="scan-status" id="scanStatus">Initializing…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Room type selector + Dimensions -->
+    <div class="scanner-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px;">
+        <h3 style="font-size:0.95rem;font-weight:700;">Room Configuration</h3>
+        <span style="font-size:0.78rem;color:var(--text-muted);">Select room type and enter dimensions for accurate suggestions</span>
+      </div>
+
+      <!-- Room type buttons -->
+      <div class="room-type-grid" style="margin-bottom:20px;">
+        <button class="room-type-btn active" data-type="Kitchen">
+          <span class="rt-icon">🍳</span> Kitchen
+        </button>
+        <button class="room-type-btn" data-type="Bathroom">
+          <span class="rt-icon">🚿</span> Bathroom
+        </button>
+        <button class="room-type-btn" data-type="Salon">
+          <span class="rt-icon">💺</span> Salon
+        </button>
+        <button class="room-type-btn" data-type="Office">
+          <span class="rt-icon">💼</span> Office
+        </button>
+        <button class="room-type-btn" data-type="Restaurant">
+          <span class="rt-icon">🍽️</span> Restaurant
+        </button>
+        <button class="room-type-btn" data-type="Retail">
+          <span class="rt-icon">🛍️</span> Retail
+        </button>
+        <button class="room-type-btn" data-type="Living">
+          <span class="rt-icon">🛋️</span> Living
+        </button>
+        <button class="room-type-btn" data-type="Bedroom">
+          <span class="rt-icon">🛏️</span> Bedroom
+        </button>
+        <button class="room-type-btn" data-type="General">
+          <span class="rt-icon">🏠</span> Other
+        </button>
+      </div>
+
+      <!-- Dimensions -->
+      <div class="dimensions-form">
+        <div class="dim-group">
+          <label class="dim-label">Width</label>
+          <div class="dim-input-wrap">
+            <input class="dim-input" type="number" id="dimWidth" value="15" min="5" max="200" step="0.5" />
+            <span class="dim-unit">ft</span>
+          </div>
+        </div>
+        <div class="dim-group">
+          <label class="dim-label">Length</label>
+          <div class="dim-input-wrap">
+            <input class="dim-input" type="number" id="dimLength" value="20" min="5" max="200" step="0.5" />
+            <span class="dim-unit">ft</span>
+          </div>
+        </div>
+        <div class="dim-group">
+          <label class="dim-label">Ceiling Height</label>
+          <div class="dim-input-wrap">
+            <input class="dim-input" type="number" id="dimHeight" value="9" min="6" max="30" step="0.5" />
+            <span class="dim-unit">ft</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:12px;flex-wrap:wrap;">
+        <button class="btn btn-primary" id="generateBtnMain" onclick="document.getElementById('generateBtn').click()" style="flex:1;min-width:200px;">
+          ✦ Generate 3D Floor Plan
+        </button>
+        <button class="btn btn-ghost btn-sm" onclick="resetDimensions()">Reset</button>
+      </div>
+    </div>
+
+    <!-- 3D Floor Plan Canvas -->
+    <div class="scanner-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+        <h3 style="font-size:0.95rem;font-weight:700;">3D Floor Plan</h3>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-ghost btn-sm" onclick="exportFloorPlan()">💾 Save PNG</button>
+          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('viewToggle').click()">🔄 Toggle View</button>
+        </div>
+      </div>
+
+      <div class="canvas-wrap">
+        <canvas id="floorPlanCanvas" style="width:100%;height:420px;display:block;"></canvas>
+
+        <!-- Controls overlay -->
+        <div class="canvas-controls">
+          <button class="canvas-btn" id="zoomIn"    title="Zoom in">＋</button>
+          <button class="canvas-btn" id="zoomOut"   title="Zoom out">－</button>
+          <button class="canvas-btn" id="viewToggle" title="Toggle View">🗺️</button>
+        </div>
+
+        <!-- Legend -->
+        <div class="canvas-legend">
+          <div class="legend-dot"><div class="legend-swatch" style="background:#7c3aed;"></div>Walls</div>
+          <div class="legend-dot"><div class="legend-swatch" style="background:#2d3a5a;"></div>Floor</div>
+          <div class="legend-dot"><div class="legend-swatch" style="background:#553c9a;"></div>Furniture</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Before / After Comparison -->
+    <div class="scanner-card" id="beforeAfterCard" style="display:none;">
+      <h3 style="font-size:0.95rem;font-weight:700;margin-bottom:16px;">Before / After Comparison</h3>
+      <div class="before-after-wrap">
+        <div class="ba-panel">
+          <div class="ba-label">Current State (Before)</div>
+          <div class="ba-canvas-wrap">
+            <canvas id="beforeCanvas" style="width:100%;height:220px;display:block;"></canvas>
+          </div>
+        </div>
+        <div class="ba-panel">
+          <div class="ba-label">After Remodel (Projected)</div>
+          <div class="ba-canvas-wrap">
+            <canvas id="afterCanvas" style="width:100%;height:220px;display:block;"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Right: Side Panel -->
+  <div class="scanner-side">
+
+    <!-- Scan Progress -->
+    <div class="side-card">
+      <div class="side-card-title">📡 Scan Progress</div>
+      <div class="scan-progress-wrap" id="scanProgress">
+        <div class="scan-step" id="step-1">
+          <div class="scan-step-icon">1</div>
+          <span>Initialize sensors</span>
+        </div>
+        <div class="scan-step" id="step-2">
+          <div class="scan-step-icon">2</div>
+          <span>Capture boundaries</span>
+        </div>
+        <div class="scan-step" id="step-3">
+          <div class="scan-step-icon">3</div>
+          <span>Map floor surface</span>
+        </div>
+        <div class="scan-step" id="step-4">
+          <div class="scan-step-icon">4</div>
+          <span>Detect walls & corners</span>
+        </div>
+        <div class="scan-step" id="step-5">
+          <div class="scan-step-icon">5</div>
+          <span>Measure dimensions</span>
+        </div>
+        <div class="scan-step" id="step-6">
+          <div class="scan-step-icon">6</div>
+          <span>Build point cloud</span>
+        </div>
+        <div class="scan-step" id="step-7">
+          <div class="scan-step-icon">7</div>
+          <span>Generate 3D model</span>
+        </div>
+        <div class="scan-step" id="step-8">
+          <div class="scan-step-icon">✓</div>
+          <span>Scan complete!</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Suggestions -->
+    <div class="side-card">
+      <div class="side-card-title">🤖 AI Recommendations</div>
+      <div id="aiSuggestions">
+        <div class="suggestion-item" style="border-color:rgba(124,58,237,0.2);">
+          <span class="suggestion-icon">✦</span>
+          <div class="suggestion-text" style="color:var(--text-muted);font-style:italic;">Generate a floor plan to receive AI layout recommendations tailored to your room type and dimensions.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Budget Estimate -->
+    <div class="side-card">
+      <div class="side-card-title">💰 Remodel Cost Estimate</div>
+      <div id="budgetEstimate">
+        <div style="color:var(--text-muted);font-size:0.82rem;font-style:italic;text-align:center;padding:10px;">
+          Enter room dimensions and generate a floor plan to see cost estimates.
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" style="width:100%;margin-top:12px;" onclick="openBudgetDash()">
+        Track Budget in Dashboard →
+      </button>
+    </div>
+
+    <!-- Tips -->
+    <div class="side-card">
+      <div class="side-card-title">💡 Scanner Tips</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <div style="display:flex;gap:8px;font-size:0.8rem;color:var(--text-secondary);">
+          <span style="flex-shrink:0;margin-top:1px;">📏</span>
+          <span>Measure room dimensions before scanning for the most accurate AI suggestions.</span>
+        </div>
+        <div style="display:flex;gap:8px;font-size:0.8rem;color:var(--text-secondary);">
+          <span style="flex-shrink:0;margin-top:1px;">📷</span>
+          <span>Scan in good lighting from a corner for the best point cloud capture.</span>
+        </div>
+        <div style="display:flex;gap:8px;font-size:0.8rem;color:var(--text-secondary);">
+          <span style="flex-shrink:0;margin-top:1px;">🗺️</span>
+          <span>Toggle between perspective view and top-down floor plan with the view button.</span>
+        </div>
+        <div style="display:flex;gap:8px;font-size:0.8rem;color:var(--text-secondary);">
+          <span style="flex-shrink:0;margin-top:1px;">💾</span>
+          <span>Save your floor plan as a PNG to share with clients before work begins.</span>
+        </div>
+        <div style="display:flex;gap:8px;font-size:0.8rem;color:var(--text-secondary);">
+          <span style="flex-shrink:0;margin-top:1px;">📊</span>
+          <span>Cost estimates are based on national averages. Your local market may vary ±20%.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Back to dashboard -->
+    <a href="dashboard.html" class="btn btn-secondary" style="width:100%;justify-content:center;text-align:center;">← Back to Dashboard</a>
+
+  </div>
+</div>
+
+<!-- ── Chatbot ─────────────────────────────────────────────────── -->
+<button class="chatbot-toggle" id="chatbotToggle" aria-label="Open AI Assistant">
+  <span id="chatIcon">🤖</span>
+  <div class="chatbot-badge" id="chatBadge">1</div>
+</button>
+<div class="chatbot-panel" id="chatbotPanel">
+  <div class="chat-header">
+    <div class="chat-avatar">🤖</div>
+    <div class="chat-info">
+      <h4>ReModelAI Assistant</h4>
+      <div class="chat-status"><span class="status-dot"></span> Online</div>
+    </div>
+    <button class="chat-close" id="chatClose">✕</button>
+  </div>
+  <div class="chat-quick-btns" id="quickBtns">
+    <button class="quick-btn" onclick="sendQuick('How does the room scanner work?')">📐 Scanner Help</button>
+    <button class="quick-btn" onclick="sendQuick('What budget should I set?')">💰 Budget</button>
+    <button class="quick-btn" onclick="sendQuick('Best layout for a salon?')">💺 Salon Layout</button>
+    <button class="quick-btn" onclick="sendQuick('Lighting recommendations')">💡 Lighting</button>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-area">
+    <input type="text" class="chat-input" id="chatInput" placeholder="Ask about layouts, budgets, permits…" maxlength="300" />
+    <button class="chat-send" id="chatSend">➤</button>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/chatbot.js"></script>
+<script src="js/room-scanner.js"></script>
+
+<script>
+  function resetDimensions() {
+    document.getElementById('dimWidth').value  = '15';
+    document.getElementById('dimLength').value = '20';
+    document.getElementById('dimHeight').value = '9';
+    window.ReModelAI && window.ReModelAI.showToast('Dimensions reset to defaults.', 'info', 2000);
+  }
+
+  function exportFloorPlan() {
+    const canvas = document.getElementById('floorPlanCanvas');
+    if (!canvas) return;
+    try {
+      const link = document.createElement('a');
+      link.download = 'remodelai-floorplan.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      window.ReModelAI && window.ReModelAI.showToast('Floor plan saved as PNG!', 'success');
+    } catch(e) {
+      window.ReModelAI && window.ReModelAI.showToast('Generate a floor plan first.', 'warning');
+    }
+  }
+
+  function openBudgetDash() {
+    window.location.href = 'dashboard.html';
+  }
+
+  // Show before/after after generation
+  const origGenBtn = document.getElementById('generateBtn');
+  if (origGenBtn) {
+    const orig = origGenBtn.onclick;
+    origGenBtn.addEventListener('click', () => {
+      setTimeout(() => {
+        const card = document.getElementById('beforeAfterCard');
+        if (card) card.style.display = 'block';
+      }, 1200);
+    });
+  }
+</script>
+</body>
+</html>

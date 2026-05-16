@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ReModelAI — Your AI Business Architect</title>
+  <meta name="description" content="ReModelAI helps small remodeling businesses launch, plan, and grow with AI-powered tools for room scanning, budget tracking, and marketing." />
+  <link rel="stylesheet" href="css/main.css" />
+  <style>
+    /* Additional index-specific overrides */
+    .hero { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; padding: 120px 0 80px; }
+    .hero-two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+    @media (max-width: 900px) { .hero-two-col { grid-template-columns: 1fr; } .hero-visual-wrap { display: none; } }
+    .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    @media (max-width: 900px) { .features-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 1200px) { .features-grid { grid-template-columns: repeat(2, 1fr); } }
+    .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    @media (max-width: 600px) { .stats-grid { grid-template-columns: 1fr; } }
+    .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; align-items: start; }
+    @media (max-width: 900px) { .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto; } }
+  </style>
+</head>
+<body>
+
+<!-- ── Navigation ──────────────────────────────────────────── -->
+<nav class="navbar" id="navbar">
+  <div class="nav-inner">
+    <a href="index.html" class="nav-logo">
+      <div class="nav-logo-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+          <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          <polyline points="9 22 9 12 15 12 15 22" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      ReModel<span class="gradient-text">AI</span>
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#pricing">Pricing</a></li>
+      <li><a href="#testimonials">Reviews</a></li>
+      <li><a href="room-scanner.html">Room Scanner</a></li>
+    </ul>
+    <div class="nav-cta">
+      <a href="dashboard.html" class="btn btn-secondary btn-sm">Dashboard</a>
+      <a href="dashboard.html" class="btn btn-primary btn-sm">Start Free Trial</a>
+    </div>
+    <button class="hamburger" id="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- Mobile Menu -->
+<div class="mobile-menu" id="mobileMenu">
+  <button class="mobile-close" id="mobileClose">✕</button>
+  <a href="#features" onclick="closeMobile()">Features</a>
+  <a href="#pricing" onclick="closeMobile()">Pricing</a>
+  <a href="#testimonials" onclick="closeMobile()">Reviews</a>
+  <a href="room-scanner.html">Room Scanner</a>
+  <a href="dashboard.html" class="btn btn-primary">Launch Dashboard</a>
+</div>
+
+<!-- ── Hero ────────────────────────────────────────────────── -->
+<section class="hero" id="hero">
+  <div class="hero-bg">
+    <div class="hero-orb hero-orb-1"></div>
+    <div class="hero-orb hero-orb-2"></div>
+    <div class="hero-grid"></div>
+  </div>
+  <div class="container">
+    <div class="hero-two-col">
+      <!-- Left -->
+      <div>
+        <div class="hero-badge">
+          <span class="dot"></span>
+          Now with AI Room Scanner v2.0
+        </div>
+        <h1 class="hero-title">
+          <span class="gradient-text">ReModelAI</span> —<br/>Your AI Business<br/>Architect
+        </h1>
+        <p class="hero-subtitle">
+          Launch, plan, and grow your remodeling business with AI-powered room scanning, smart budget tracking, automated marketing, and step-by-step guides — all in one platform.
+        </p>
+        <div class="hero-actions">
+          <a href="dashboard.html" class="btn btn-primary btn-lg">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Start Building Free
+          </a>
+          <a href="room-scanner.html" class="btn btn-secondary btn-lg">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M15 3h4a2 2 0 012 2v4m0 6v4a2 2 0 01-2 2h-4M3 9V5a2 2 0 012-2h4m0 18H5a2 2 0 01-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Try Room Scanner
+          </a>
+        </div>
+        <div class="hero-social-proof">
+          <div class="avatar-stack">
+            <div class="avatar" style="background: linear-gradient(135deg,#7c3aed,#06b6d4)">MK</div>
+            <div class="avatar" style="background: linear-gradient(135deg,#06b6d4,#10b981)">SR</div>
+            <div class="avatar" style="background: linear-gradient(135deg,#f59e0b,#ef4444)">JL</div>
+            <div class="avatar" style="background: linear-gradient(135deg,#10b981,#7c3aed)">AP</div>
+            <div class="avatar" style="background: linear-gradient(135deg,#ef4444,#f59e0b)">TW</div>
+          </div>
+          <div class="social-text">
+            Trusted by <strong>10,000+</strong> remodeling businesses worldwide
+          </div>
+        </div>
+      </div>
+      <!-- Right: Dashboard Preview Card -->
+      <div class="hero-visual-wrap" style="position:relative;">
+        <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:24px;padding:24px;box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:float 6s ease-in-out infinite;position:relative;z-index:2;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+            <div style="font-weight:700;font-size:0.95rem;">Project Overview</div>
+            <div style="background:rgba(16,185,129,0.15);color:#10b981;border:1px solid rgba(16,185,129,0.3);padding:3px 10px;border-radius:99px;font-size:0.72rem;font-weight:700;">● Live</div>
+          </div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+            <div style="background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:1.4rem;font-weight:900;color:#06b6d4;">14</div>
+              <div style="font-size:0.65rem;color:var(--text-muted);margin-top:2px;">Projects</div>
+            </div>
+            <div style="background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:1.4rem;font-weight:900;color:#10b981;">87%</div>
+              <div style="font-size:0.65rem;color:var(--text-muted);margin-top:2px;">On Track</div>
+            </div>
+            <div style="background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.2);border-radius:10px;padding:12px;text-align:center;">
+              <div style="font-size:1.4rem;font-weight:900;color:#f59e0b;">$48k</div>
+              <div style="font-size:0.65rem;color:var(--text-muted);margin-top:2px;">Revenue</div>
+            </div>
+          </div>
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px;"><span>Budget Used</span><span>73%</span></div>
+            <div style="height:8px;background:var(--bg-elevated);border-radius:99px;overflow:hidden;">
+              <div id="heroProg" style="height:100%;width:0;background:linear-gradient(90deg,#7c3aed,#06b6d4);border-radius:99px;transition:width 2s cubic-bezier(0.4,0,0.2,1);"></div>
+            </div>
+          </div>
+          <div style="margin-bottom:12px;">
+            <div style="display:flex;justify-content:space-between;font-size:0.75rem;color:var(--text-secondary);margin-bottom:6px;"><span>Tasks Complete</span><span>61%</span></div>
+            <div style="height:8px;background:var(--bg-elevated);border-radius:99px;overflow:hidden;">
+              <div id="heroProg2" style="height:100%;width:0;background:linear-gradient(90deg,#06b6d4,#10b981);border-radius:99px;transition:width 2.3s cubic-bezier(0.4,0,0.2,1);"></div>
+            </div>
+          </div>
+          <div style="background:rgba(6,182,212,0.07);border:1px solid rgba(6,182,212,0.15);border-radius:10px;padding:10px 14px;font-size:0.78rem;color:var(--text-secondary);">
+            <span style="color:#06b6d4;font-weight:700;">✦ AI Insight:</span> Bathroom remodel 12% under budget. Consider upgrading fixtures.
+          </div>
+        </div>
+        <!-- Floating badges -->
+        <div style="position:absolute;top:-16px;right:-20px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:10px 14px;font-size:0.78rem;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow-md);animation:float 5s ease-in-out 0.5s infinite;z-index:3;">
+          <span>🏆</span> Top Rated Platform
+        </div>
+        <div style="position:absolute;bottom:-16px;left:-20px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:12px;padding:10px 14px;font-size:0.78rem;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:var(--shadow-md);animation:float 5s ease-in-out 1.5s infinite;z-index:3;">
+          <span>🤖</span> AI Suggestions Ready
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Stats Bar ─────────────────────────────────────────────── -->
+<div class="stats-bar">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat-item reveal">
+        <span class="stat-number" data-count="10000">0</span>
+        <div class="stat-label">Businesses Launched</div>
+      </div>
+      <div class="stat-item reveal reveal-delay-2">
+        <span class="stat-number" data-count="50" data-suffix="+">0</span>
+        <div class="stat-label">Languages Supported</div>
+      </div>
+      <div class="stat-item reveal reveal-delay-4">
+        <span class="stat-number" data-count="2.3" data-prefix="$" data-suffix="M">0</span>
+        <div class="stat-label">Saved in Overruns</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Features ───────────────────────────────────────────────── -->
+<section class="features" id="features">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">✦ Full Platform</div>
+      <h2>Everything your remodeling<br/><span class="gradient-text">business needs</span></h2>
+      <p>From AI-powered room scanning to automated marketing — ReModelAI is the all-in-one platform that replaces five tools with one powerful suite.</p>
+    </div>
+    <div class="features-grid">
+
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feature-icon">🌐</div>
+        <h3>Website Builder</h3>
+        <p>Launch a stunning, SEO-optimized website in minutes. Choose from 50+ templates built specifically for remodeling businesses. No code needed.</p>
+        <div class="feature-tags">
+          <span class="tag">50+ Templates</span>
+          <span class="tag">SEO Ready</span>
+        </div>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feature-icon">🤖</div>
+        <h3>AI Chatbot</h3>
+        <p>24/7 intelligent assistant answers questions about permits, budgets, timelines, and marketing. Powered by advanced keyword matching with 20+ response categories.</p>
+        <div class="feature-tags">
+          <span class="tag">24/7 Support</span>
+          <span class="tag">20+ Topics</span>
+        </div>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-3">
+        <div class="feature-icon">📐</div>
+        <h3>3D Room Scanner</h3>
+        <p>Capture rooms via webcam or enter dimensions manually. Get instant 3D floor plans, furniture placement suggestions, and AI-powered layout recommendations.</p>
+        <div class="feature-tags">
+          <span class="tag">Webcam Scan</span>
+          <span class="tag">3D Floorplan</span>
+        </div>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-1">
+        <div class="feature-icon">💰</div>
+        <h3>Budget Tracker</h3>
+        <p>Track every expense category in real time with live donut charts. Color-coded alerts warn you before overruns happen. Export reports in one click.</p>
+        <div class="feature-tags">
+          <span class="tag">Live Charts</span>
+          <span class="tag">Overrun Alerts</span>
+        </div>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-2">
+        <div class="feature-icon">📣</div>
+        <h3>Marketing Tools</h3>
+        <p>Generate social media posts, discover SEO keywords, create your 30-day launch checklist, and get color palette suggestions — all AI-generated for your niche.</p>
+        <div class="feature-tags">
+          <span class="tag">Post Generator</span>
+          <span class="tag">SEO Keywords</span>
+        </div>
+      </div>
+
+      <div class="feature-card reveal reveal-delay-3">
+        <div class="feature-icon">📋</div>
+        <h3>Planning Guides</h3>
+        <p>Step-by-step accordion guides for Permits, Construction Timelines, Hiring Staff, Grand Openings, and Online Presence — with time and cost estimates for each step.</p>
+        <div class="feature-tags">
+          <span class="tag">5 Guide Topics</span>
+          <span class="tag">Printable</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ── How It Works ────────────────────────────────────────────── -->
+<section style="padding:80px 0;background:var(--bg-secondary);">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">✦ Simple Process</div>
+      <h2>Launch your business in <span class="gradient-text">3 easy steps</span></h2>
+      <p>ReModelAI guides you from zero to fully operational in days, not months.</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:32px;position:relative;" class="reveal">
+      <!-- connector line -->
+      <div style="position:absolute;top:42px;left:calc(16.66% + 24px);right:calc(16.66% + 24px);height:2px;background:linear-gradient(90deg,#7c3aed,#06b6d4);z-index:0;"></div>
+      <div style="text-align:center;position:relative;z-index:1;">
+        <div style="width:84px;height:84px;background:var(--gradient-main);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:2rem;box-shadow:0 0 30px rgba(124,58,237,0.4);">1</div>
+        <h4 style="margin-bottom:8px;color:var(--text-primary);">Scan Your Space</h4>
+        <p style="font-size:0.9rem;">Use our webcam scanner or enter dimensions to generate an instant 3D floor plan with AI layout suggestions.</p>
+      </div>
+      <div style="text-align:center;position:relative;z-index:1;">
+        <div style="width:84px;height:84px;background:var(--gradient-main);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:2rem;box-shadow:0 0 30px rgba(6,182,212,0.4);">2</div>
+        <h4 style="margin-bottom:8px;color:var(--text-primary);">Plan Your Budget</h4>
+        <p style="font-size:0.9rem;">Add expense categories, track spending in real time, and get automatic alerts before you go over budget.</p>
+      </div>
+      <div style="text-align:center;position:relative;z-index:1;">
+        <div style="width:84px;height:84px;background:var(--gradient-main);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:2rem;box-shadow:0 0 30px rgba(16,185,129,0.4);">3</div>
+        <h4 style="margin-bottom:8px;color:var(--text-primary);">Market & Launch</h4>
+        <p style="font-size:0.9rem;">Generate social posts, get SEO keywords, and follow your personalized 30-day launch checklist to open with impact.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Pricing ─────────────────────────────────────────────────── -->
+<section class="pricing" id="pricing">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">✦ Simple Pricing</div>
+      <h2>Choose the plan that <span class="gradient-text">fits your business</span></h2>
+      <p>No contracts, no hidden fees. Upgrade or downgrade anytime. All plans include a 14-day free trial.</p>
+    </div>
+    <div class="pricing-grid">
+      <!-- Starter -->
+      <div class="pricing-card reveal reveal-delay-1">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">
+          <span class="price-currency">$</span><span class="price-amount">29</span><span class="price-period">/mo</span>
+        </div>
+        <p class="plan-desc">Perfect for solo contractors and small crews just getting started.</p>
+        <ul class="plan-features">
+          <li><span class="check-icon">✓</span> 3 active projects</li>
+          <li><span class="check-icon">✓</span> AI Chatbot (50 queries/mo)</li>
+          <li><span class="check-icon">✓</span> Basic room scanner</li>
+          <li><span class="check-icon">✓</span> Budget tracker (3 categories)</li>
+          <li><span class="check-icon">✓</span> 1 team member</li>
+          <li><span class="check-icon">✓</span> Planning guides access</li>
+          <li><span class="check-icon">✓</span> Email support</li>
+        </ul>
+        <a href="dashboard.html" class="btn btn-secondary" style="width:100%;justify-content:center;">Get Started</a>
+      </div>
+      <!-- Growth - Featured -->
+      <div class="pricing-card featured reveal reveal-delay-2">
+        <div class="popular-badge">⚡ Most Popular</div>
+        <div class="plan-name">Growth</div>
+        <div class="plan-price">
+          <span class="price-currency">$</span><span class="price-amount">79</span><span class="price-period">/mo</span>
+        </div>
+        <p class="plan-desc">For growing businesses ready to scale and automate marketing.</p>
+        <ul class="plan-features">
+          <li><span class="check-icon">✓</span> 25 active projects</li>
+          <li><span class="check-icon">✓</span> Unlimited AI Chatbot</li>
+          <li><span class="check-icon">✓</span> Full 3D room scanner + AI layouts</li>
+          <li><span class="check-icon">✓</span> Budget tracker (unlimited categories)</li>
+          <li><span class="check-icon">✓</span> Marketing tools suite</li>
+          <li><span class="check-icon">✓</span> 5 team members</li>
+          <li><span class="check-icon">✓</span> Client portal access</li>
+          <li><span class="check-icon">✓</span> Priority support</li>
+          <li><span class="check-icon">✓</span> Export & reporting</li>
+        </ul>
+        <a href="dashboard.html" class="btn btn-primary" style="width:100%;justify-content:center;">Start Free Trial</a>
+      </div>
+      <!-- Enterprise -->
+      <div class="pricing-card reveal reveal-delay-3">
+        <div class="plan-name">Enterprise</div>
+        <div class="plan-price">
+          <span class="price-currency">$</span><span class="price-amount">199</span><span class="price-period">/mo</span>
+        </div>
+        <p class="plan-desc">For established companies managing multiple crews and large projects.</p>
+        <ul class="plan-features">
+          <li><span class="check-icon">✓</span> Unlimited projects</li>
+          <li><span class="check-icon">✓</span> Custom AI model fine-tuning</li>
+          <li><span class="check-icon">✓</span> Advanced 3D scanning + AR preview</li>
+          <li><span class="check-icon">✓</span> Multi-location budget tracking</li>
+          <li><span class="check-icon">✓</span> White-label client portal</li>
+          <li><span class="check-icon">✓</span> Unlimited team members</li>
+          <li><span class="check-icon">✓</span> API access</li>
+          <li><span class="check-icon">✓</span> Dedicated account manager</li>
+          <li><span class="check-icon">✓</span> SLA guarantee</li>
+        </ul>
+        <a href="dashboard.html" class="btn btn-outline" style="width:100%;justify-content:center;">Contact Sales</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── Testimonials ────────────────────────────────────────────── -->
+<section class="testimonials" id="testimonials">
+  <div class="container">
+    <div class="section-header reveal">
+      <div class="section-tag">✦ Reviews</div>
+      <h2>Loved by remodeling <span class="gradient-text">professionals</span></h2>
+      <p>Don't take our word for it — hear from the businesses already thriving with ReModelAI.</p>
+    </div>
+  </div>
+  <div style="overflow:hidden;mask-image:linear-gradient(90deg,transparent 0%,black 8%,black 92%,transparent 100%);">
+    <div class="testimonials-track" id="testimonialsTrack">
+      <!-- Row 1 -->
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"ReModelAI cut our project planning time in half. The 3D scanner alone saved us thousands in miscommunication costs. I can't imagine running my business without it."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)">MK</div>
+          <div><div class="author-name">Marcus Kim</div><div class="author-title">Kitchen Renovations Co., Seattle</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"The budget tracker prevented a $28,000 overrun on our biggest commercial project. The red alert popped up two weeks before we would have hit the limit — absolute game changer."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#06b6d4,#10b981)">SR</div>
+          <div><div class="author-name">Sandra Rivera</div><div class="author-title">Premier Remodel, Miami</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"As a solo contractor, I needed something simple but powerful. The AI chatbot answers every client question I used to spend hours on. My response time went from hours to seconds."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">JL</div>
+          <div><div class="author-name">James Liu</div><div class="author-title">Liu's Custom Builds, Austin</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"The marketing tools generated our entire first month of social media content in 20 minutes. We went from zero online presence to 400 Instagram followers in 30 days."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#10b981,#7c3aed)">AP</div>
+          <div><div class="author-name">Alicia Patel</div><div class="author-title">Fresh Spaces Design, Chicago</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"We scaled from 2 to 8 employees using the planning guides as our employee onboarding framework. The permits checklist alone saved us from 3 potential violations."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#ef4444,#f59e0b)">TW</div>
+          <div><div class="author-name">Tom & Wei Construction</div><div class="author-title">Portland, OR</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"Switched from three separate tools to ReModelAI and saved $240/month in software costs. The all-in-one dashboard is clean, fast, and my whole crew uses it daily."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#7c3aed,#10b981)">LM</div>
+          <div><div class="author-name">Lena Moreno</div><div class="author-title">Moreno & Sons Remodeling, Denver</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"The ROI calculator in the chatbot helped me convince three investors to fund our expansion. I showed them a projected breakdown in 5 minutes during a meeting."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#06b6d4,#7c3aed)">RN</div>
+          <div><div class="author-name">Rachel Nguyen</div><div class="author-title">UrbanRework Studio, NYC</div></div>
+        </div>
+      </div>
+      <!-- Duplicate for seamless loop -->
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"ReModelAI cut our project planning time in half. The 3D scanner alone saved us thousands in miscommunication costs. I can't imagine running my business without it."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#7c3aed,#06b6d4)">MK</div>
+          <div><div class="author-name">Marcus Kim</div><div class="author-title">Kitchen Renovations Co., Seattle</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"The budget tracker prevented a $28,000 overrun on our biggest commercial project. The red alert popped up two weeks before we would have hit the limit."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#06b6d4,#10b981)">SR</div>
+          <div><div class="author-name">Sandra Rivera</div><div class="author-title">Premier Remodel, Miami</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"As a solo contractor, I needed something simple but powerful. The AI chatbot answers every client question I used to spend hours on."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#f59e0b,#ef4444)">JL</div>
+          <div><div class="author-name">James Liu</div><div class="author-title">Liu's Custom Builds, Austin</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"The marketing tools generated our entire first month of social media content in 20 minutes. We went from zero online presence to 400 followers in 30 days."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#10b981,#7c3aed)">AP</div>
+          <div><div class="author-name">Alicia Patel</div><div class="author-title">Fresh Spaces Design, Chicago</div></div>
+        </div>
+      </div>
+      <div class="testimonial-card">
+        <div class="testimonial-stars">★★★★★</div>
+        <p class="testimonial-text">"Switched from three separate tools to ReModelAI and saved $240/month in software costs. The all-in-one dashboard is clean, fast, and my whole crew uses it daily."</p>
+        <div class="testimonial-author">
+          <div class="author-avatar" style="background:linear-gradient(135deg,#7c3aed,#10b981)">LM</div>
+          <div><div class="author-name">Lena Moreno</div><div class="author-title">Moreno & Sons Remodeling, Denver</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── CTA Section ─────────────────────────────────────────────── -->
+<section class="cta-section">
+  <div class="container">
+    <div class="section-tag" style="margin-bottom:20px;">✦ Ready to Build?</div>
+    <h2 class="reveal">Stop losing time and money.<br/>Start building <span class="gradient-text">smarter today.</span></h2>
+    <p class="reveal" style="max-width:550px;margin:0 auto 40px;">Join 10,000+ remodeling businesses that use ReModelAI to launch faster, budget better, and market smarter — all from one dashboard.</p>
+    <div class="cta-actions reveal">
+      <a href="dashboard.html" class="btn btn-primary btn-lg">
+        Launch Your Dashboard Free
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a href="room-scanner.html" class="btn btn-secondary btn-lg">Try the 3D Room Scanner</a>
+    </div>
+    <p style="font-size:0.82rem;color:var(--text-muted);margin-top:20px;" class="reveal">No credit card required &bull; 14-day free trial &bull; Cancel anytime</p>
+  </div>
+</section>
+
+<!-- ── Footer ──────────────────────────────────────────────────── -->
+<footer>
+  <div class="container">
+    <div class="footer-grid">
+      <div class="footer-brand">
+        <a href="index.html" class="nav-logo">
+          <div class="nav-logo-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <polyline points="9 22 9 12 15 12 15 22" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
+          ReModel<span class="gradient-text">AI</span>
+        </a>
+        <p>The all-in-one AI platform for remodeling businesses. Scan, plan, track, and market — all in one place.</p>
+        <div class="social-links">
+          <a href="#" class="social-link" aria-label="Twitter">𝕏</a>
+          <a href="#" class="social-link" aria-label="LinkedIn">in</a>
+          <a href="#" class="social-link" aria-label="Instagram">📸</a>
+          <a href="#" class="social-link" aria-label="YouTube">▶</a>
+        </div>
+      </div>
+      <div class="footer-col">
+        <h4>Product</h4>
+        <ul class="footer-links">
+          <li><a href="#features">Features</a></li>
+          <li><a href="room-scanner.html">3D Room Scanner</a></li>
+          <li><a href="dashboard.html">Dashboard</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#">Changelog</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Resources</h4>
+        <ul class="footer-links">
+          <li><a href="#">Documentation</a></li>
+          <li><a href="#">Blog</a></li>
+          <li><a href="#">Case Studies</a></li>
+          <li><a href="#">Permit Guide</a></li>
+          <li><a href="#">ROI Calculator</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Company</h4>
+        <ul class="footer-links">
+          <li><a href="#">About Us</a></li>
+          <li><a href="#">Careers</a></li>
+          <li><a href="#">Contact</a></li>
+          <li><a href="#">Privacy Policy</a></li>
+          <li><a href="#">Terms of Service</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>© 2026 ReModelAI, Inc. All rights reserved.</p>
+      <p>Built for the remodeling professionals who build the world.</p>
+    </div>
+  </div>
+</footer>
+
+<!-- ── Chatbot ──────────────────────────────────────────────────── -->
+<button class="chatbot-toggle" id="chatbotToggle" aria-label="Open AI Assistant">
+  <span id="chatIcon">🤖</span>
+  <div class="chatbot-badge" id="chatBadge">1</div>
+</button>
+<div class="chatbot-panel" id="chatbotPanel">
+  <div class="chat-header">
+    <div class="chat-avatar">🤖</div>
+    <div class="chat-info">
+      <h4>ReModelAI Assistant</h4>
+      <div class="chat-status"><span class="status-dot"></span> Online — ready to help</div>
+    </div>
+    <button class="chat-close" id="chatClose" aria-label="Close">✕</button>
+  </div>
+  <div class="chat-quick-btns" id="quickBtns">
+    <button class="quick-btn" onclick="sendQuick('What permits do I need?')">📋 Permits</button>
+    <button class="quick-btn" onclick="sendQuick('How do I market my business?')">📣 Marketing</button>
+    <button class="quick-btn" onclick="sendQuick('What\'s my ROI estimate?')">💰 ROI</button>
+    <button class="quick-btn" onclick="sendQuick('How do I hire staff?')">👥 Hiring</button>
+    <button class="quick-btn" onclick="sendQuick('What budget should I set?')">📊 Budget</button>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-area">
+    <input type="text" class="chat-input" id="chatInput" placeholder="Ask anything about your business…" maxlength="300" />
+    <button class="chat-send" id="chatSend" aria-label="Send">➤</button>
+  </div>
+</div>
+
+<script src="js/app.js"></script>
+<script src="js/chatbot.js"></script>
+<script>
+  // Nav scroll
+  const navbar = document.getElementById('navbar');
+  window.addEventListener('scroll', () => {
+    navbar.classList.toggle('scrolled', window.scrollY > 20);
+  });
+
+  // Hamburger
+  const hamburger = document.getElementById('hamburger');
+  const mobileMenu = document.getElementById('mobileMenu');
+  const mobileClose = document.getElementById('mobileClose');
+  hamburger.addEventListener('click', () => mobileMenu.classList.add('open'));
+  mobileClose.addEventListener('click', () => mobileMenu.classList.remove('open'));
+  function closeMobile() { mobileMenu.classList.remove('open'); }
+
+  // Animate progress bars on load
+  setTimeout(() => {
+    const p1 = document.getElementById('heroProg');
+    const p2 = document.getElementById('heroProg2');
+    if(p1) p1.style.width = '73%';
+    if(p2) p2.style.width = '61%';
+  }, 600);
+
+  // Counter animation
+  function animateCounter(el) {
+    const target = parseFloat(el.dataset.count);
+    const prefix = el.dataset.prefix || '';
+    const suffix = el.dataset.suffix || (target >= 1000 ? '+' : '');
+    const isDecimal = String(target).includes('.');
+    let start = 0;
+    const duration = 2000;
+    const step = 16;
+    const increment = target / (duration / step);
+    const timer = setInterval(() => {
+      start += increment;
+      if (start >= target) {
+        start = target;
+        clearInterval(timer);
+      }
+      el.textContent = prefix + (isDecimal ? start.toFixed(1) : Math.floor(start).toLocaleString()) + suffix;
+    }, step);
+  }
+
+  const countObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting && entry.target.dataset.count) {
+        animateCounter(entry.target);
+        countObserver.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.5 });
+
+  document.querySelectorAll('[data-count]').forEach(el => countObserver.observe(el));
+</script>
+</body>
+</html>

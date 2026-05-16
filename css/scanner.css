@@ -1,0 +1,454 @@
+/* ============================================================
+   ReModelAI — Room Scanner CSS
+   ============================================================ */
+
+/* ── Scanner Layout ─────────────────────────────────────────── */
+.scanner-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 24px;
+  padding: 90px 24px 40px;
+  max-width: 1300px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+@media (max-width: 1100px) {
+  .scanner-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Scan Main Panel ─────────────────────────────────────────── */
+.scanner-main { display: flex; flex-direction: column; gap: 20px; }
+
+.scanner-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+}
+
+.scanner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.scanner-title-group h2 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 4px;
+}
+
+.scanner-title-group p {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.scanner-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ── Camera View ─────────────────────────────────────────────── */
+.camera-wrap {
+  position: relative;
+  background: #000;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  aspect-ratio: 16/9;
+  max-height: 360px;
+}
+
+#cameraFeed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+}
+
+.camera-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #0d0d1a 0%, #1a0a2e 100%);
+}
+
+.camera-placeholder-icon {
+  font-size: 3rem;
+  opacity: 0.4;
+}
+
+.camera-placeholder-text {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-align: center;
+  max-width: 240px;
+}
+
+/* Scan overlay animation */
+.scan-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: none;
+}
+
+.scan-overlay.active { display: block; }
+
+.scan-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, var(--accent-cyan), transparent);
+  animation: scanMove 2.5s ease-in-out infinite;
+  box-shadow: 0 0 15px var(--accent-cyan), 0 0 30px rgba(6,182,212,0.5);
+}
+
+@keyframes scanMove {
+  0% { top: 5%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { top: 95%; opacity: 0; }
+}
+
+.scan-corners::before, .scan-corners::after,
+.scan-corners .corner-br, .scan-corners .corner-bl {
+  content: '';
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-color: var(--accent-cyan);
+  border-style: solid;
+  opacity: 0.8;
+}
+
+.scan-corners::before { top: 12px; left: 12px; border-width: 3px 0 0 3px; border-radius: 3px 0 0 3px; }
+.scan-corners::after { top: 12px; right: 12px; border-width: 3px 3px 0 0; border-radius: 0 3px 0 0; }
+.scan-corners .corner-br { bottom: 12px; right: 12px; border-width: 0 3px 3px 0; border-radius: 0 0 3px 0; }
+.scan-corners .corner-bl { bottom: 12px; left: 12px; border-width: 0 0 3px 3px; border-radius: 0 0 0 3px; }
+
+.scan-status {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(8px);
+  color: var(--accent-cyan);
+  font-size: 0.78rem;
+  font-weight: 700;
+  padding: 6px 16px;
+  border-radius: 99px;
+  border: 1px solid rgba(6,182,212,0.3);
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+/* ── Dimensions Input ───────────────────────────────────────── */
+.dimensions-form {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 600px) {
+  .dimensions-form { grid-template-columns: 1fr; }
+}
+
+.dim-group { display: flex; flex-direction: column; gap: 6px; }
+.dim-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.dim-input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.dim-input-wrap:focus-within { border-color: var(--accent-purple); }
+
+.dim-input {
+  flex: 1;
+  background: none;
+  border: none;
+  outline: none;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  padding: 10px 12px;
+  font-family: inherit;
+}
+
+.dim-unit {
+  padding: 0 12px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  background: rgba(255,255,255,0.04);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  border-left: 1px solid var(--border-color);
+}
+
+/* ── Canvas 3D Viewer ───────────────────────────────────────── */
+.canvas-wrap {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: #0a0a14;
+  border: 1px solid var(--border-color);
+}
+
+#floorPlanCanvas {
+  display: block;
+  width: 100%;
+  cursor: grab;
+}
+
+#floorPlanCanvas:active { cursor: grabbing; }
+
+.canvas-controls {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.canvas-btn {
+  width: 34px;
+  height: 34px;
+  background: rgba(22,33,62,0.9);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s;
+  backdrop-filter: blur(4px);
+}
+
+.canvas-btn:hover { border-color: var(--accent-cyan); color: var(--accent-cyan); }
+
+.canvas-legend {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.legend-dot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: rgba(13,13,26,0.8);
+  padding: 3px 8px;
+  border-radius: 99px;
+  backdrop-filter: blur(4px);
+}
+
+.legend-swatch {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Before/After ───────────────────────────────────────────── */
+.before-after-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 600px) { .before-after-wrap { grid-template-columns: 1fr; } }
+
+.ba-panel {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.ba-label {
+  padding: 8px 14px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: rgba(255,255,255,0.04);
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-muted);
+}
+
+.ba-canvas-wrap {
+  position: relative;
+  aspect-ratio: 4/3;
+}
+
+/* ── Right Panel ─────────────────────────────────────────────── */
+.scanner-side { display: flex; flex-direction: column; gap: 20px; }
+
+.side-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-xl);
+  padding: 20px;
+}
+
+.side-card-title {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* AI Suggestions */
+.suggestion-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  margin-bottom: 10px;
+  transition: border-color 0.2s;
+  cursor: default;
+}
+
+.suggestion-item:hover { border-color: rgba(124,58,237,0.4); }
+.suggestion-item:last-child { margin-bottom: 0; }
+
+.suggestion-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 2px; }
+
+.suggestion-text {
+  flex: 1;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.suggestion-text strong { color: var(--accent-cyan); font-weight: 700; display: block; margin-bottom: 2px; }
+
+/* Budget Estimate */
+.estimate-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border-color);
+  font-size: 0.85rem;
+}
+
+.estimate-row:last-child { border-bottom: none; }
+.estimate-label { color: var(--text-secondary); }
+.estimate-val { font-weight: 700; color: var(--text-primary); }
+.estimate-total { font-size: 1rem; font-weight: 900; color: var(--accent-cyan); }
+
+/* Room type selector */
+.room-type-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.room-type-btn {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 10px 6px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.room-type-btn .rt-icon { font-size: 1.3rem; display: block; margin-bottom: 4px; }
+
+.room-type-btn:hover,
+.room-type-btn.active {
+  border-color: var(--accent-purple);
+  background: rgba(124,58,237,0.12);
+  color: var(--accent-purple-light);
+}
+
+/* Scan Progress */
+.scan-progress-wrap { display: flex; flex-direction: column; gap: 8px; }
+
+.scan-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  transition: color 0.3s;
+}
+
+.scan-step.done { color: var(--success); }
+.scan-step.active { color: var(--accent-cyan); }
+
+.scan-step-icon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  flex-shrink: 0;
+  transition: all 0.3s;
+}
+
+.scan-step.done .scan-step-icon {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.scan-step.active .scan-step-icon {
+  border-color: var(--accent-cyan);
+  animation: spin-ring 1s linear infinite;
+}
+
+@keyframes spin-ring {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .scanner-layout { padding: 80px 16px 32px; }
+  .scanner-actions { flex-direction: column; }
+  .before-after-wrap { grid-template-columns: 1fr; }
+}
