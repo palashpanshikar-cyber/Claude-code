@@ -1,0 +1,106 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Category {
+  ADVENTURE
+  FOOD_DRINK
+  CULTURE
+  NATURE
+  FITNESS
+  CREATIVE
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  username     String   @unique
+  passwordHash String
+  displayName  String
+  // IANA zone. Streaks and mini rotation are evaluated in the user's own day.
+  timezone     String   @default("UTC")
+  city         String?
+
+  currentStreak Int @default(0)
+  longestStreak Int @default(0)
+  // Local calendar date (YYYY-MM-DD) of the most recent streak-qualifying day.
+  lastActiveDay String?
+
+  createdAt   DateTime @default(now())
+  completions Completion[]
+  miniAssignments MiniAssignment[]
+
+  @@index([lastActiveDay])
+}
+
+model Quest {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  category    Category
+  // Null city = an "everywhere" quest, available to every user.
+  city        String?
+  neighborhood String?
+  // Rough effort in minutes, used for display and filtering.
+  durationMin Int      @default(30)
+  difficulty  Int      @default(1) // 1-3
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  completions Completion[]
+
+  @@index([category, city])
+  @@index([isActive])
+}
+
+model Completion {
+  id        String   @id @default(cuid())
+  userId    String
+  questId   String
+  photoUrl  String
+  review    String?
+  rating    Int // 1-5
+  // Local calendar date the completion counted for.
+  localDay  String
+  createdAt DateTime @default(now())
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quest Quest @relation(fields: [questId], references: [id], onDelete: Restrict)
+
+  // One completion per quest per user — repeat logging would inflate streaks.
+  @@unique([userId, questId])
+  @@index([userId, createdAt])
+  @@index([userId, localDay])
+}
+
+model MiniQuest {
+  id       String   @id @default(cuid())
+  // Stable position in the fixed rotation; drives which minis surface on a day.
+  slot     Int      @unique
+  title    String
+  prompt   String
+  category Category
+
+  assignments MiniAssignment[]
+}
+
+model MiniAssignment {
+  id          String    @id @default(cuid())
+  userId      String
+  miniQuestId String
+  localDay    String
+  completedAt DateTime?
+  note        String?
+  createdAt   DateTime  @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  miniQuest MiniQuest @relation(fields: [miniQuestId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, miniQuestId, localDay])
+  @@index([userId, localDay])
+}
