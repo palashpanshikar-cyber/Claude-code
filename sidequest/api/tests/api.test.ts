@@ -1,6 +1,8 @@
 import test, { before, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import request from 'supertest';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import {
   app,
   prisma,
@@ -9,6 +11,8 @@ import {
   seedMinis,
   registerUser,
   PNG_FIXTURE,
+  makeAdmin,
+  bigImage,
 } from './helpers.js';
 
 interface FeedQuest {
@@ -569,4 +573,246 @@ test('the sweep leaves a streak that is merely open today', async () => {
 
   const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
   assert.equal(fresh.currentStreak, 3);
+});
+
+test('a large upload is downscaled and re-encoded before storage', async () => {
+  const { token } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+  const original = await bigImage(3000, 2000);
+
+  const res = await request(app)
+    .post('/completions')
+    .set(auth(token))
+    .field('questId', quest!.id)
+    .field('rating', '5')
+    .attach('photo', original, { filename: 'big.jpg', contentType: 'image/jpeg' });
+  assert.equal(res.status, 201);
+
+  const stored = await prisma.completion.findFirstOrThrow();
+  const onDisk = await readFile(path.join(process.env.UPLOAD_DIR!, stored.photoKey));
+
+  assert.ok(onDisk.length < original.length, 'stored file is smaller than the original');
+  assert.ok(stored.photoKey.endsWith('.jpg'), 'normalised to jpeg');
+
+  const sharp = (await import('sharp')).default;
+  const meta = await sharp(onDisk).metadata();
+  assert.equal(meta.width, 1600, 'long edge capped at the completion preset');
+  assert.equal(meta.height, Math.round((1600 * 2000) / 3000));
+});
+
+test('a small image is not upscaled', async () => {
+  const { token } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+
+  await request(app)
+    .post('/completions')
+    .set(auth(token))
+    .field('questId', quest!.id)
+    .field('rating', '5')
+    .attach('photo', await bigImage(300, 200), { filename: 's.jpg', contentType: 'image/jpeg' });
+
+  const stored = await prisma.completion.findFirstOrThrow();
+  const sharp = (await import('sharp')).default;
+  const meta = await sharp(
+    await readFile(path.join(process.env.UPLOAD_DIR!, stored.photoKey)),
+  ).metadata();
+  assert.equal(meta.width, 300);
+});
+
+test('avatar can be uploaded, replaced and removed', async () => {
+  const { token } = await registerUser(request);
+
+  const up = await request(app)
+    .put('/me/avatar')
+    .set(auth(token))
+    .attach('photo', await bigImage(1200, 1200), { filename: 'a.jpg', contentType: 'image/jpeg' });
+  assert.equal(up.status, 200);
+  assert.ok(up.body.user.avatarUrl.includes('/uploads/avatars/'));
+
+  const replaced = await request(app)
+    .put('/me/avatar')
+    .set(auth(token))
+    .attach('photo', await bigImage(800, 800), { filename: 'b.jpg', contentType: 'image/jpeg' });
+  assert.notEqual(replaced.body.user.avatarUrl, up.body.user.avatarUrl, 'new key each time');
+
+  const cleared = await request(app).delete('/me/avatar').set(auth(token));
+  assert.equal(cleared.status, 200);
+  assert.equal(cleared.body.user.avatarUrl, null);
+});
+
+test('avatar is capped at the avatar preset, not the completion one', async () => {
+  const { token, user } = await registerUser(request);
+  await request(app)
+    .put('/me/avatar')
+    .set(auth(token))
+    .attach('photo', await bigImage(2000, 2000), { filename: 'a.jpg', contentType: 'image/jpeg' });
+
+  const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+  const sharp = (await import('sharp')).default;
+  const meta = await sharp(
+    await readFile(path.join(process.env.UPLOAD_DIR!, fresh.avatarKey!)),
+  ).metadata();
+  assert.equal(meta.width, 512);
+});
+
+test('avatar upload rejects a non-image', async () => {
+  const { token } = await registerUser(request);
+  const res = await request(app)
+    .put('/me/avatar')
+    .set(auth(token))
+    .attach('photo', Buffer.from('nope'), { filename: 'x.txt', contentType: 'text/plain' });
+  assert.equal(res.status, 400);
+});
+
+test('a submitted quest is pending, hidden from the feed, visible to its author', async () => {
+  const { token, user } = await registerUser(request);
+
+  const created = await request(app).post('/quests').set(auth(token)).send({
+    title: 'Swim the harbour at dawn',
+    description: 'Get in the water before the ferries start running.',
+    category: 'NATURE',
+    city: 'Boston',
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.quest.status, 'PENDING');
+  assert.equal(created.body.quest.createdById, user.id);
+
+  const id = created.body.quest.id;
+
+  const feed = await request(app).get('/quests?city=all').set(auth(token));
+  assert.ok(!feed.body.quests.some((q: FeedQuest) => q.id === id), 'stays out of the feed');
+
+  const mine = await request(app).get('/quests/mine/submissions').set(auth(token));
+  assert.equal(mine.body.quests.length, 1);
+
+  // Its author can open it; a stranger cannot.
+  assert.equal((await request(app).get(`/quests/${id}`).set(auth(token))).status, 200);
+  const { token: other } = await registerUser(request);
+  assert.equal((await request(app).get(`/quests/${id}`).set(auth(other))).status, 404);
+});
+
+test('a pending quest cannot be completed', async () => {
+  const { token } = await registerUser(request);
+  const created = await request(app).post('/quests').set(auth(token)).send({
+    title: 'Unapproved quest here',
+    description: 'Should not be loggable while pending.',
+    category: 'ADVENTURE',
+  });
+
+  const res = await completeQuest(token, created.body.quest.id);
+  assert.equal(res.status, 404);
+});
+
+test('submission validation rejects thin content', async () => {
+  const { token } = await registerUser(request);
+  const res = await request(app)
+    .post('/quests')
+    .set(auth(token))
+    .send({ title: 'x', description: 'short', category: 'NOPE' });
+  assert.equal(res.status, 400);
+});
+
+test('an admin approves a submission and it enters the feed', async () => {
+  const { token: authorToken } = await registerUser(request);
+  const { token: adminToken, user: admin } = await registerUser(request);
+  await makeAdmin(admin.id);
+
+  const created = await request(app).post('/quests').set(auth(authorToken)).send({
+    title: 'Ride the last ferry out',
+    description: 'Catch the final crossing of the night and come back.',
+    category: 'ADVENTURE',
+  });
+  const id = created.body.quest.id;
+
+  const queue = await request(app).get('/quests/admin/queue').set(auth(adminToken));
+  assert.equal(queue.status, 200);
+  assert.equal(queue.body.quests.length, 1);
+  assert.ok(queue.body.quests[0].submittedBy.username, 'the queue shows who submitted it');
+
+  const decision = await request(app)
+    .patch(`/quests/${id}/status`)
+    .set(auth(adminToken))
+    .send({ status: 'APPROVED' });
+  assert.equal(decision.status, 200);
+  assert.equal(decision.body.quest.status, 'APPROVED');
+
+  const feed = await request(app).get('/quests?city=all').set(auth(authorToken));
+  assert.ok(
+    feed.body.quests.some((q: FeedQuest) => q.id === id),
+    'now in the feed',
+  );
+
+  // And now loggable.
+  assert.equal((await completeQuest(authorToken, id)).status, 201);
+});
+
+test("an admin's own submission skips the queue", async () => {
+  const { token, user } = await registerUser(request);
+  await makeAdmin(user.id);
+
+  const created = await request(app).post('/quests').set(auth(token)).send({
+    title: 'Seeded by the operator',
+    description: 'Admin submissions do not need a second pair of eyes.',
+    category: 'CULTURE',
+  });
+  assert.equal(created.body.quest.status, 'APPROVED');
+});
+
+test('admin surfaces are invisible to ordinary users', async () => {
+  const { token } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+
+  // 404 rather than 403 — the surface should not confirm it exists.
+  assert.equal((await request(app).get('/quests/admin/queue').set(auth(token))).status, 404);
+  assert.equal(
+    (
+      await request(app)
+        .patch(`/quests/${quest!.id}/status`)
+        .set(auth(token))
+        .send({ status: 'REJECTED' })
+    ).status,
+    404,
+  );
+  assert.equal((await request(app).get('/minis/pool').set(auth(token))).status, 404);
+});
+
+test('an admin can manage the mini pool', async () => {
+  const { token, user } = await registerUser(request);
+  await makeAdmin(user.id);
+  await seedMinis(4);
+
+  const pool = await request(app).get('/minis/pool').set(auth(token));
+  assert.equal(pool.body.poolSize, 4);
+
+  const created = await request(app).post('/minis/pool').set(auth(token)).send({
+    slot: 4,
+    title: 'Call someone',
+    prompt: 'Phone a friend you have not spoken to.',
+    category: 'ADVENTURE',
+  });
+  assert.equal(created.status, 201);
+
+  const clash = await request(app).post('/minis/pool').set(auth(token)).send({
+    slot: 4,
+    title: 'Duplicate slot',
+    prompt: 'Should collide with the one above.',
+    category: 'CULTURE',
+  });
+  assert.equal(clash.status, 409);
+
+  const edited = await request(app)
+    .patch(`/minis/pool/${created.body.mini.id}`)
+    .set(auth(token))
+    .send({ title: 'Call someone you miss' });
+  assert.equal(edited.body.mini.title, 'Call someone you miss');
+
+  const removed = await request(app).delete(`/minis/pool/${created.body.mini.id}`).set(auth(token));
+  assert.equal(removed.status, 200);
+  assert.equal((await request(app).get('/minis/pool').set(auth(token))).body.poolSize, 4);
+
+  assert.equal(
+    (await request(app).patch('/minis/pool/ghost').set(auth(token)).send({ title: 'Ghost mini' }))
+      .status,
+    404,
+  );
 });

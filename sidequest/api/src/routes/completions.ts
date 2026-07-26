@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
 import { localDay } from '../lib/day.js';
 import { ALLOWED_IMAGE_MIME, storePhoto } from '../lib/storage.js';
+import { processImage } from '../lib/images.js';
 import { milestoneReached, recomputeStreak, recordActivity } from '../services/streak.js';
 import { publicCompletion, publicUser } from '../lib/serialize.js';
 
@@ -39,7 +40,9 @@ completionsRouter.post('/', requireAuth, upload.single('photo'), async (req, res
     }
 
     const quest = await prisma.quest.findUnique({ where: { id: input.questId } });
-    if (!quest || !quest.isActive) {
+    // A pending submission is visible to its author but must not be completable
+    // — otherwise you could log a quest you invented and nobody approved.
+    if (!quest || !quest.isActive || quest.status !== 'APPROVED') {
       res.status(404).json({ error: 'Quest not found' });
       return;
     }
@@ -52,11 +55,15 @@ completionsRouter.post('/', requireAuth, upload.single('photo'), async (req, res
       return;
     }
 
+    // Resize before upload — phone originals are 4-12MB and every profile grid
+    // render would pay for that.
+    const image = await processImage(req.file.buffer, req.file.mimetype, 'completion');
+
     // Upload before the transaction: a stray object in R2 is cheaper than a
     // transaction held open across a network call.
     const photoKey = await storePhoto({
-      buffer: req.file.buffer,
-      mimetype: req.file.mimetype,
+      buffer: image.buffer,
+      mimetype: image.mimetype,
       userId: user.id,
     });
 

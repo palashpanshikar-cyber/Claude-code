@@ -11,6 +11,7 @@ layer, no badges, no bucket list — those are Phase 2/3 and deliberately absent
 - **Mobile:** Expo (React Native) — not started
 - **Storage:** Cloudflare R2 for completion photos (falls back to local disk)
 - **Jobs:** node-cron for the streak sweep
+- **Images:** sharp for resize/re-encode on upload
 
 ## Project structure
 
@@ -19,7 +20,7 @@ sidequest/
 ├── api/          # Express backend (TypeScript, strict)
 │   ├── prisma/   # schema, migrations, seed content
 │   ├── src/
-│   └── tests/    # 38 tests, unit + HTTP integration
+│   └── tests/    # 62 tests, unit + HTTP integration
 └── mobile/       # Expo app (not started)
 ```
 
@@ -106,6 +107,8 @@ All routes except `/health` and `/auth/*` need `Authorization: Bearer <token>`.
 | POST | `/auth/register` | Create account |
 | POST | `/auth/login` | Get JWT |
 | GET | `/quests` | Quest feed with filters |
+| POST | `/quests` | Submit a quest (lands PENDING) |
+| GET | `/quests/mine/submissions` | Your submissions and their state |
 | GET | `/quests/categories` | Category list with display labels |
 | GET | `/quests/:id` | Quest detail + completion stats |
 | POST | `/completions` | Complete a quest (multipart photo) |
@@ -113,11 +116,29 @@ All routes except `/health` and `/auth/*` need `Authorization: Bearer <token>`.
 | DELETE | `/completions/:id` | Remove your own completion |
 | GET | `/me` | Profile + streak + stats |
 | PATCH | `/me` | Update display name, city, timezone |
+| PUT | `/me/avatar` | Upload profile photo (multipart) |
+| DELETE | `/me/avatar` | Remove profile photo |
 | GET | `/me/completions` | Your completion grid |
 | GET | `/me/streak` | Streak stats + 30-day history |
 | GET | `/minis/today` | Today's 4 daily minis |
 | POST | `/minis/:assignmentId/complete` | Mark mini done |
 | GET | `/users/:idOrUsername/profile` | Public profile: stats, streak, grid |
+
+### Admin routes
+
+Admin is the `isAdmin` column, set by hand in the database. There is deliberately
+no endpoint that grants it — a self-serve path to moderator rights is a
+privilege-escalation bug waiting to happen. These return **404, not 403**, to
+ordinary users, so the surface doesn't confirm it exists.
+
+| Method | Route | Description |
+|--------|-------|-------------|
+| GET | `/quests/admin/queue` | Moderation queue (`?status=PENDING`) |
+| PATCH | `/quests/:id/status` | Approve or reject a submission |
+| GET | `/minis/pool` | The full mini rotation |
+| POST | `/minis/pool` | Add a mini at a slot |
+| PATCH | `/minis/pool/:id` | Edit a mini |
+| DELETE | `/minis/pool/:id` | Remove a mini |
 
 ### Feed filters
 
@@ -152,6 +173,18 @@ decrementing it, since removing a day's only activity can sever a run. The
 stored photo is left in the bucket — an orphaned object is recoverable where a
 deleted photo is not.
 
+### Quest moderation
+
+User submissions land `PENDING` and stay out of the feed until approved — quest
+supply *is* the product, so it can't be open season. A pending quest is visible
+to its author (so they can see it's in review) and to admins, and is **not
+completable** by anyone, or you could log a quest you invented yourself.
+
+An admin's own submission is auto-approved; there's nobody else to review it.
+
+`status` is separate from `isActive`: status is moderation, `isActive` retires an
+approved quest that's no longer doable (venue closed, season over).
+
 ### Photo storage
 
 Completions store the R2 object *key*, not a URL, and the URL is resolved on
@@ -159,6 +192,14 @@ read. That keeps photos working across a bucket or CDN domain change, and lets
 a private bucket be served through short-lived presigned URLs. With
 `R2_PUBLIC_URL` set the same key renders as a plain CDN URL instead. With no R2
 credentials at all, photos land in `./uploads/` and are served from `/uploads`.
+
+Uploads are resized and re-encoded with sharp before storage — completions to a
+1600px long edge, avatars to 512px, both JPEG. Phone originals are 4–12MB and
+every profile-grid render would otherwise pay for that; a 4000x3000 test image
+lands at 1600x1200 and a twelfth of the bytes. EXIF orientation is baked into
+the pixels and the rest of the metadata dropped, so uploads don't carry the GPS
+coordinates of where they were taken into a public feed. If sharp can't decode
+a format, the original is stored unchanged rather than losing the photo.
 
 ## How the habit engine works
 

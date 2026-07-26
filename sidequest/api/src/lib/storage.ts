@@ -43,17 +43,19 @@ export async function storePhoto({
   buffer,
   mimetype,
   userId,
+  prefix = 'completions',
 }: {
   buffer: Buffer;
   mimetype: string;
   userId: string;
+  prefix?: string;
 }): Promise<string> {
   const ext = EXT_BY_MIME[mimetype];
   if (!ext) {
     throw Object.assign(new Error(`Unsupported image type: ${mimetype}`), { status: 400 });
   }
 
-  const key = `completions/${userId}/${randomUUID()}.${ext}`;
+  const key = `${prefix}/${userId}/${randomUUID()}.${ext}`;
 
   if (config.storage.driver === 'r2') {
     await getS3().send(

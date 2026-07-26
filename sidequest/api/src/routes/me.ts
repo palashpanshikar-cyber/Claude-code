@@ -1,10 +1,13 @@
 import { Router } from 'express';
+import multer from 'multer';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
 import { isValidTimezone } from '../lib/day.js';
 import { liveStreak } from '../services/streak.js';
-import { publicCompletion, publicUser } from '../lib/serialize.js';
+import { publicCompletion, publicUser, publicUserWithAvatar } from '../lib/serialize.js';
+import { ALLOWED_IMAGE_MIME, storePhoto } from '../lib/storage.js';
+import { processImage } from '../lib/images.js';
 
 export const meRouter = Router();
 
@@ -108,6 +111,61 @@ meRouter.get('/streak', async (req, res, next) => {
         .slice(0, 30)
         .map(([day, count]) => ({ day, count })),
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const avatarUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_IMAGE_MIME.includes(file.mimetype)) {
+      cb(Object.assign(new Error('Avatar must be JPEG, PNG, WebP or HEIC'), { status: 400 }));
+      return;
+    }
+    cb(null, true);
+  },
+});
+
+meRouter.put('/avatar', avatarUpload.single('photo'), async (req, res, next) => {
+  try {
+    const user = (req as AuthedRequest).user;
+
+    if (!req.file) {
+      res.status(400).json({ error: 'A photo is required' });
+      return;
+    }
+
+    const image = await processImage(req.file.buffer, req.file.mimetype, 'avatar');
+    const avatarKey = await storePhoto({
+      buffer: image.buffer,
+      mimetype: image.mimetype,
+      userId: user.id,
+      prefix: 'avatars',
+    });
+
+    // The previous avatar object is left in the bucket. Deleting it would race
+    // with any client still rendering the old URL, and it costs almost nothing.
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { avatarKey },
+    });
+
+    res.json({ user: await publicUserWithAvatar(updated) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+meRouter.delete('/avatar', async (req, res, next) => {
+  try {
+    const user = (req as AuthedRequest).user;
+    const updated = await prisma.user.update({
+      where: { id: user.id },
+      data: { avatarKey: null },
+    });
+    res.json({ user: await publicUserWithAvatar(updated) });
   } catch (err) {
     next(err);
   }

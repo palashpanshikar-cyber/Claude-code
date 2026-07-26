@@ -14,6 +14,17 @@ export function publicUser(user: User) {
   };
 }
 
+/**
+ * Same as publicUser but resolves the avatar key to a URL. Async, so it is a
+ * separate function rather than making every user serialisation awaitable.
+ */
+export async function publicUserWithAvatar(user: User) {
+  return {
+    ...publicUser(user),
+    avatarUrl: user.avatarKey ? await photoUrlFor(user.avatarKey) : null,
+  };
+}
+
 export function publicQuest(quest: Quest, opts: { completed?: boolean } = {}) {
   return {
     id: quest.id,
@@ -24,6 +35,8 @@ export function publicQuest(quest: Quest, opts: { completed?: boolean } = {}) {
     neighborhood: quest.neighborhood,
     durationMin: quest.durationMin,
     difficulty: quest.difficulty,
+    status: quest.status,
+    createdById: quest.createdById,
     ...(opts.completed === undefined ? {} : { completed: opts.completed }),
   };
 }

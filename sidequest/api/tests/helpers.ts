@@ -86,3 +86,23 @@ export const PNG_FIXTURE = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64',
 );
+
+/** Marks a user as an admin — there is no endpoint for this, by design. */
+export async function makeAdmin(userId: string): Promise<void> {
+  await prisma.user.update({ where: { id: userId }, data: { isAdmin: true } });
+}
+
+/** A real, large JPEG, for exercising the resize path rather than a 1x1 stub. */
+export async function bigImage(width = 3000, height = 2000): Promise<Buffer> {
+  const sharp = (await import('sharp')).default;
+  return sharp({
+    create: {
+      width,
+      height,
+      channels: 3,
+      background: { r: 120, g: 180, b: 220 },
+    },
+  })
+    .jpeg({ quality: 100 })
+    .toBuffer();
+}
