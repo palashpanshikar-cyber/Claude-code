@@ -1,12 +1,20 @@
 import { Router } from 'express';
+import { Prisma } from '@prisma/client';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
 import { publicQuest } from '../lib/serialize.js';
 
 export const questsRouter = Router();
 
-export const CATEGORIES = ['ADVENTURE', 'FOOD_DRINK', 'CULTURE', 'NATURE', 'FITNESS', 'CREATIVE'];
+export const CATEGORIES = [
+  'ADVENTURE',
+  'FOOD_DRINK',
+  'CULTURE',
+  'NATURE',
+  'FITNESS',
+  'CREATIVE',
+] as const;
 
 const feedSchema = z.object({
   category: z.enum(CATEGORIES).optional(),
@@ -20,18 +28,17 @@ const feedSchema = z.object({
 
 questsRouter.get('/', requireAuth, async (req, res, next) => {
   try {
+    const user = (req as AuthedRequest).user;
     const q = feedSchema.parse(req.query);
-    const city = q.city ?? req.user.city ?? 'all';
+    const city = q.city ?? user.city ?? 'all';
 
-    const where = {
+    const where: Prisma.QuestWhereInput = {
       isActive: true,
       ...(q.category ? { category: q.category } : {}),
       // "Everywhere" quests (city: null) always show alongside local ones.
       ...(city === 'all' ? {} : { OR: [{ city }, { city: null }] }),
-      ...(q.search
-        ? { title: { contains: q.search, mode: 'insensitive' } }
-        : {}),
-      ...(q.hideCompleted === 'true' ? { completions: { none: { userId: req.user.id } } } : {}),
+      ...(q.search ? { title: { contains: q.search, mode: 'insensitive' } } : {}),
+      ...(q.hideCompleted === 'true' ? { completions: { none: { userId: user.id } } } : {}),
     };
 
     const rows = await prisma.quest.findMany({
@@ -39,7 +46,7 @@ questsRouter.get('/', requireAuth, async (req, res, next) => {
       take: q.limit + 1,
       ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      include: { completions: { where: { userId: req.user.id }, select: { id: true } } },
+      include: { completions: { where: { userId: user.id }, select: { id: true } } },
     });
 
     const hasMore = rows.length > q.limit;
@@ -47,7 +54,7 @@ questsRouter.get('/', requireAuth, async (req, res, next) => {
 
     res.json({
       quests: page.map((quest) => publicQuest(quest, { completed: quest.completions.length > 0 })),
-      nextCursor: hasMore ? page[page.length - 1].id : null,
+      nextCursor: hasMore ? page[page.length - 1]!.id : null,
       appliedCity: city,
     });
   } catch (err) {
@@ -55,7 +62,7 @@ questsRouter.get('/', requireAuth, async (req, res, next) => {
   }
 });
 
-questsRouter.get('/categories', requireAuth, (req, res) => {
+questsRouter.get('/categories', requireAuth, (_req, res) => {
   res.json({
     categories: [
       { key: 'ADVENTURE', label: 'Adventure' },
@@ -70,17 +77,21 @@ questsRouter.get('/categories', requireAuth, (req, res) => {
 
 questsRouter.get('/:id', requireAuth, async (req, res, next) => {
   try {
+    const user = (req as AuthedRequest).user;
     const quest = await prisma.quest.findUnique({
       where: { id: req.params.id },
       include: {
         completions: {
-          where: { userId: req.user.id },
+          where: { userId: user.id },
           select: { id: true, rating: true, createdAt: true },
         },
       },
     });
 
-    if (!quest || !quest.isActive) return res.status(404).json({ error: 'Quest not found' });
+    if (!quest || !quest.isActive) {
+      res.status(404).json({ error: 'Quest not found' });
+      return;
+    }
 
     const stats = await prisma.completion.aggregate({
       where: { questId: quest.id },

@@ -1,8 +1,12 @@
 process.env.NODE_ENV = 'test';
-process.env.RUN_CRON = 'false';
+process.env.ENABLE_CRON = 'false';
 process.env.DATABASE_URL =
-  process.env.TEST_DATABASE_URL ?? 'postgresql://postgres:postgres@127.0.0.1:5432/sidequest_test';
+  process.env.TEST_DATABASE_URL ??
+  'postgresql://postgres:postgres@127.0.0.1:5432/sidequest_test?schema=public';
 process.env.UPLOAD_DIR = process.env.UPLOAD_DIR ?? '/tmp/sidequest-test-uploads';
+
+import type { Quest } from '@prisma/client';
+import supertest from 'supertest';
 
 const { createApp } = await import('../src/app.js');
 const { prisma } = await import('../src/lib/prisma.js');
@@ -10,7 +14,7 @@ const { prisma } = await import('../src/lib/prisma.js');
 export { prisma };
 export const app = createApp();
 
-export async function resetDb() {
+export async function resetDb(): Promise<void> {
   await prisma.miniAssignment.deleteMany();
   await prisma.completion.deleteMany();
   await prisma.user.deleteMany();
@@ -18,16 +22,19 @@ export async function resetDb() {
   await prisma.miniQuest.deleteMany();
 }
 
-export async function seedQuests(n = 3, overrides = {}) {
-  const categories = ['ADVENTURE', 'FOOD_DRINK', 'CULTURE', 'NATURE', 'FITNESS', 'CREATIVE'];
-  const quests = [];
+export async function seedQuests(
+  n = 3,
+  overrides: Partial<Quest> = {},
+): Promise<Quest[]> {
+  const categories = ['ADVENTURE', 'FOOD_DRINK', 'CULTURE', 'NATURE', 'FITNESS', 'CREATIVE'] as const;
+  const quests: Quest[] = [];
   for (let i = 0; i < n; i += 1) {
     quests.push(
       await prisma.quest.create({
         data: {
           title: `Test quest ${i}`,
           description: `Description ${i}`,
-          category: categories[i % categories.length],
+          category: categories[i % categories.length]!,
           city: null,
           ...overrides,
         },
@@ -37,7 +44,7 @@ export async function seedQuests(n = 3, overrides = {}) {
   return quests;
 }
 
-export async function seedMinis(n = 20) {
+export async function seedMinis(n = 20): Promise<void> {
   for (let slot = 0; slot < n; slot += 1) {
     await prisma.miniQuest.create({
       data: { slot, title: `Mini ${slot}`, prompt: `Do mini ${slot}`, category: 'ADVENTURE' },
@@ -47,7 +54,10 @@ export async function seedMinis(n = 20) {
 
 let counter = 0;
 
-export async function registerUser(request, overrides = {}) {
+export async function registerUser(
+  request: typeof supertest,
+  overrides: Record<string, unknown> = {},
+) {
   counter += 1;
   const payload = {
     email: `user${counter}@test.dev`,
@@ -59,7 +69,11 @@ export async function registerUser(request, overrides = {}) {
   };
   const res = await request(app).post('/auth/register').send(payload);
   if (res.status !== 201) throw new Error(`register failed: ${res.status} ${res.text}`);
-  return { ...res.body, payload };
+  return { ...res.body, payload } as {
+    token: string;
+    user: { id: string; currentStreak: number; passwordHash?: string };
+    payload: typeof payload;
+  };
 }
 
 // A 1x1 PNG — smallest valid image multer will accept.

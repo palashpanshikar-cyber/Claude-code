@@ -1,3 +1,6 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateEnum
 CREATE TYPE "Category" AS ENUM ('ADVENTURE', 'FOOD_DRINK', 'CULTURE', 'NATURE', 'FITNESS', 'CREATIVE');
 
@@ -39,7 +42,7 @@ CREATE TABLE "Completion" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
     "questId" TEXT NOT NULL,
-    "photoUrl" TEXT NOT NULL,
+    "photoKey" TEXT NOT NULL,
     "review" TEXT,
     "rating" INTEGER NOT NULL,
     "localDay" TEXT NOT NULL,
@@ -116,3 +119,4 @@ ALTER TABLE "MiniAssignment" ADD CONSTRAINT "MiniAssignment_userId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "MiniAssignment" ADD CONSTRAINT "MiniAssignment_miniQuestId_fkey" FOREIGN KEY ("miniQuestId") REFERENCES "MiniQuest"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+

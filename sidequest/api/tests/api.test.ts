@@ -11,9 +11,23 @@ import {
   PNG_FIXTURE,
 } from './helpers.js';
 
-const auth = (token) => ({ Authorization: `Bearer ${token}` });
+interface FeedQuest {
+  id: string;
+  title: string;
+  category: string;
+}
+interface FeedMini {
+  assignmentId: string;
+  id: string;
+}
 
-function completeQuest(token, questId, { rating = 5, review = 'Good' } = {}) {
+const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
+
+function completeQuest(
+  token: string,
+  questId: string,
+  { rating = 5, review = 'Good' }: { rating?: number; review?: string } = {},
+) {
   return request(app)
     .post('/completions')
     .set(auth(token))
@@ -114,16 +128,16 @@ test('quest feed filters by category and city', async () => {
 
   const feed = await request(app).get('/quests').set(auth(token));
   assert.equal(feed.status, 200);
-  const titles = feed.body.quests.map((q) => q.title);
+  const titles = feed.body.quests.map((q: FeedQuest) => q.title);
   assert.ok(titles.includes('Boston only'), 'city quests appear');
   assert.ok(titles.includes('Test quest 0'), 'everywhere quests appear');
   assert.ok(!titles.includes('Lisbon only'), 'other cities are filtered out');
 
   const nature = await request(app).get('/quests?category=NATURE').set(auth(token));
-  assert.ok(nature.body.quests.every((q) => q.category === 'NATURE'));
+  assert.ok(nature.body.quests.every((q: FeedQuest) => q.category === 'NATURE'));
 
   const all = await request(app).get('/quests?city=all').set(auth(token));
-  assert.ok(all.body.quests.map((q) => q.title).includes('Lisbon only'));
+  assert.ok(all.body.quests.map((q: FeedQuest) => q.title).includes('Lisbon only'));
 });
 
 test('quest feed rejects an unknown category', async () => {
@@ -146,8 +160,8 @@ test('quest feed paginates with a stable cursor', async () => {
   assert.equal(second.body.quests.length, 2);
 
   const overlap = first.body.quests
-    .map((q) => q.id)
-    .filter((id) => second.body.quests.some((q) => q.id === id));
+    .map((q: FeedQuest) => q.id)
+    .filter((id: string) => second.body.quests.some((q: FeedQuest) => q.id === id));
   assert.equal(overlap.length, 0, 'pages must not repeat quests');
 });
 
@@ -168,7 +182,7 @@ test('completing a quest starts a streak and marks the quest completed', async (
   assert.equal(detail.body.stats.avgRating, 4);
 
   const hidden = await request(app).get('/quests?hideCompleted=true').set(auth(token));
-  assert.ok(!hidden.body.quests.some((q) => q.id === quest.id));
+  assert.ok(!hidden.body.quests.some((q: FeedQuest) => q.id === quest.id));
 });
 
 test('a second quest on the same day does not double the streak', async () => {
@@ -289,8 +303,8 @@ test('daily minis return four and are stable within the day', async () => {
 
   const second = await request(app).get('/minis/today').set(auth(token));
   assert.deepEqual(
-    second.body.minis.map((m) => m.id),
-    first.body.minis.map((m) => m.id),
+    second.body.minis.map((m: FeedMini) => m.id),
+    first.body.minis.map((m: FeedMini) => m.id),
     'refreshing must not reshuffle the day',
   );
 
@@ -353,7 +367,7 @@ test('yesterday leftover mini cannot backfill a missed day', async () => {
     .send({});
   assert.equal(res.status, 410);
 
-  const fresh = await prisma.user.findUnique({ where: { id: user.id } });
+  const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
   assert.equal(fresh.currentStreak, 0);
 });
 
@@ -373,7 +387,7 @@ test('profile updates persist and drive the feed city', async () => {
 
   const feed = await request(app).get('/quests').set(auth(token));
   assert.equal(feed.body.appliedCity, 'Lisbon');
-  assert.ok(feed.body.quests.some((q) => q.title === 'Lisbon only'));
+  assert.ok(feed.body.quests.some((q: FeedQuest) => q.title === 'Lisbon only'));
 });
 
 test('unknown routes return a json 404', async () => {

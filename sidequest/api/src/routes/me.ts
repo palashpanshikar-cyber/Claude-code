@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth } from '../middleware/auth.js';
+import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
 import { isValidTimezone } from '../lib/day.js';
 import { liveStreak } from '../services/streak.js';
 import { publicCompletion, publicUser } from '../lib/serialize.js';
@@ -12,18 +12,20 @@ meRouter.use(requireAuth);
 
 meRouter.get('/', async (req, res, next) => {
   try {
+    const user = (req as AuthedRequest).user;
+
     const [completions, categories] = await Promise.all([
-      prisma.completion.count({ where: { userId: req.user.id } }),
+      prisma.completion.count({ where: { userId: user.id } }),
       prisma.completion.findMany({
-        where: { userId: req.user.id },
+        where: { userId: user.id },
         select: { quest: { select: { category: true } } },
         distinct: ['questId'],
       }),
     ]);
 
     res.json({
-      user: publicUser(req.user),
-      streak: liveStreak(req.user),
+      user: publicUser(user),
+      streak: liveStreak(user),
       stats: {
         completions,
         categoriesExplored: new Set(categories.map((c) => c.quest.category)).size,
@@ -42,9 +44,10 @@ const profileSchema = z.object({
 
 meRouter.patch('/', async (req, res, next) => {
   try {
+    const user = (req as AuthedRequest).user;
     const input = profileSchema.parse(req.body);
-    const user = await prisma.user.update({ where: { id: req.user.id }, data: input });
-    res.json({ user: publicUser(user) });
+    const updated = await prisma.user.update({ where: { id: user.id }, data: input });
+    res.json({ user: publicUser(updated) });
   } catch (err) {
     next(err);
   }
@@ -57,10 +60,11 @@ const gridSchema = z.object({
 
 meRouter.get('/completions', async (req, res, next) => {
   try {
+    const user = (req as AuthedRequest).user;
     const q = gridSchema.parse(req.query);
 
     const rows = await prisma.completion.findMany({
-      where: { userId: req.user.id },
+      where: { userId: user.id },
       take: q.limit + 1,
       ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -71,8 +75,8 @@ meRouter.get('/completions', async (req, res, next) => {
     const page = hasMore ? rows.slice(0, q.limit) : rows;
 
     res.json({
-      completions: page.map(publicCompletion),
-      nextCursor: hasMore ? page[page.length - 1].id : null,
+      completions: await Promise.all(page.map(publicCompletion)),
+      nextCursor: hasMore ? page[page.length - 1]!.id : null,
     });
   } catch (err) {
     next(err);
@@ -81,17 +85,18 @@ meRouter.get('/completions', async (req, res, next) => {
 
 meRouter.get('/streak', async (req, res, next) => {
   try {
-    const streak = liveStreak(req.user);
+    const user = (req as AuthedRequest).user;
+    const streak = liveStreak(user);
 
     // Last 30 local days of activity — drives the profile heatmap.
     const recent = await prisma.completion.findMany({
-      where: { userId: req.user.id },
+      where: { userId: user.id },
       select: { localDay: true },
       orderBy: { createdAt: 'desc' },
       take: 200,
     });
 
-    const byDay = new Map();
+    const byDay = new Map<string, number>();
     for (const { localDay: day } of recent) {
       byDay.set(day, (byDay.get(day) ?? 0) + 1);
     }

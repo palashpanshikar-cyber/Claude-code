@@ -7,7 +7,7 @@ layer, no badges, no bucket list — those are Phase 2/3 and deliberately absent
 
 ## Stack
 
-- **API:** Node.js, Express, Prisma, PostgreSQL
+- **API:** TypeScript, Node.js, Express, Prisma, PostgreSQL
 - **Mobile:** Expo (React Native) — not started
 - **Storage:** Cloudflare R2 for completion photos (falls back to local disk)
 - **Jobs:** node-cron for the streak sweep
@@ -16,7 +16,7 @@ layer, no badges, no bucket list — those are Phase 2/3 and deliberately absent
 
 ```
 sidequest/
-├── api/          # Express backend
+├── api/          # Express backend (TypeScript, strict)
 │   ├── prisma/   # schema, migrations, seed content
 │   ├── src/
 │   └── tests/    # 38 tests, unit + HTTP integration
@@ -32,8 +32,8 @@ docker compose up -d
 cd api
 cp .env.example .env
 npm install
-npx prisma migrate dev --name init
-npx prisma db seed
+npm run db:migrate
+npm run db:seed
 npm run dev
 ```
 
@@ -44,19 +44,30 @@ Update `DATABASE_URL` in `api/.env`, then:
 ```bash
 cd api
 npm install
-npx prisma migrate dev --name init
-npx prisma db seed
+npm run db:migrate
+npm run db:seed
 npm run dev
 ```
 
 API runs at `http://localhost:3000`. Photos go to `api/uploads/` and are served
 from `/uploads/...` until you configure R2.
 
+## Scripts
+
+| Command | What it does |
+|---------|--------------|
+| `npm run dev` | tsx watch on `src/index.ts` |
+| `npm run build` | `tsc` → `dist/` |
+| `npm start` | run the compiled build |
+| `npm run typecheck` | typecheck `src` and `tests` |
+| `npm test` | full suite against a real Postgres |
+| `npm run db:migrate` / `db:seed` / `db:studio` | Prisma |
+
 ## Tests
 
 ```bash
 createdb sidequest_test
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/sidequest_test npx prisma migrate deploy
+DATABASE_URL="postgresql://postgres:postgres@localhost:5432/sidequest_test?schema=public" npx prisma migrate deploy
 npm test
 ```
 
@@ -107,6 +118,14 @@ All routes except `/health` and `/auth/*` need `Authorization: Bearer <token>`.
 Returns the completion and the updated streak. A quest can only be completed
 once per user (409 on a repeat).
 
+### Photo storage
+
+Completions store the R2 object *key*, not a URL, and the URL is resolved on
+read. That keeps photos working across a bucket or CDN domain change, and lets
+a private bucket be served through short-lived presigned URLs. With
+`R2_PUBLIC_URL` set the same key renders as a plain CDN URL instead. With no R2
+credentials at all, photos land in `./uploads/` and are served from `/uploads`.
+
 ## How the habit engine works
 
 **Streaks** are measured in the user's own local calendar day, taken from their
@@ -128,7 +147,7 @@ Yesterday's leftover minis return 410 rather than backfilling a missed day.
 
 ## Seed content
 
-`npx prisma db seed` loads 44 quests (26 "everywhere" + 18 city/campus) and the
+`npm run db:seed` loads 44 quests (26 "everywhere" + 18 city/campus) and the
 20 minis. Set `SEED_CITY` in `.env` to the city or campus you're launching in —
 that's the differentiation lever, so it's worth picking before you seed. The
 seed is idempotent and matches on title, so re-running it tops content up
@@ -142,8 +161,10 @@ in Phase 1.
 See `api/.env.example`. Notable:
 
 - `JWT_SECRET` — required in production, the process refuses to start without it
-- `RUN_CRON` — set `false` on extra instances so the sweep runs once
-- `R2_BUCKET` — unset means photos go to local disk; setting it switches to R2
+- `ENABLE_CRON` — set `false` on extra instances so the sweep runs once
+- `R2_ACCOUNT_ID` — blank means photos go to local disk; setting it switches to R2
+- `R2_PUBLIC_URL` — blank means photo URLs are presigned instead of public
+- `CORS_ORIGIN` — defaults to `*`; lock it down once the app ships
 
 ## Not built yet (by design)
 

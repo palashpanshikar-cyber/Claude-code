@@ -33,7 +33,8 @@ authRouter.post('/register', async (req, res, next) => {
     });
     if (clash) {
       const field = clash.email === input.email ? 'Email' : 'Username';
-      return res.status(409).json({ error: `${field} already taken` });
+      res.status(409).json({ error: `${field} already taken` });
+      return;
     }
 
     const user = await prisma.user.create({
@@ -65,7 +66,8 @@ authRouter.post('/login', async (req, res, next) => {
 
     // Same response for unknown email and wrong password — no account enumeration.
     if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
-      return res.status(401).json({ error: 'Invalid email or password' });
+      res.status(401).json({ error: 'Invalid email or password' });
+      return;
     }
 
     res.json({ token: signToken(user), user: publicUser(user) });

@@ -1,4 +1,4 @@
-import cron from 'node-cron';
+import cron, { type ScheduledTask } from 'node-cron';
 import { prisma } from '../lib/prisma.js';
 import { localDay, shiftDay } from '../lib/day.js';
 
@@ -13,15 +13,14 @@ import { localDay, shiftDay } from '../lib/day.js';
  * Runs hourly rather than nightly because "midnight" happens 24+ times a day
  * across timezones; an hourly pass catches each one within the hour.
  */
-export async function sweepStreaks(now = new Date()) {
+export async function sweepStreaks(now: Date = new Date()): Promise<{ broken: number }> {
   const users = await prisma.user.findMany({
     where: { currentStreak: { gt: 0 } },
     select: { id: true, timezone: true, lastActiveDay: true },
   });
 
   const stale = users.filter((user) => {
-    const today = localDay(user.timezone, now);
-    const yesterday = shiftDay(today, -1);
+    const yesterday = shiftDay(localDay(user.timezone, now), -1);
     return !user.lastActiveDay || user.lastActiveDay < yesterday;
   });
 
@@ -35,9 +34,9 @@ export async function sweepStreaks(now = new Date()) {
   return { broken: stale.length };
 }
 
-export function startCron() {
+export function startCron(): ScheduledTask {
   // Hourly, on the hour.
-  const task = cron.schedule('0 * * * *', async () => {
+  return cron.schedule('0 * * * *', async () => {
     try {
       const { broken } = await sweepStreaks();
       if (broken > 0) console.log(`[cron] broke ${broken} stale streak(s)`);
@@ -45,6 +44,4 @@ export function startCron() {
       console.error('[cron] streak sweep failed', err);
     }
   });
-
-  return task;
 }

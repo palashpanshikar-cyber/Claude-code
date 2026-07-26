@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type Category } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
@@ -10,7 +10,21 @@ const prisma = new PrismaClient();
 const CITY = process.env.SEED_CITY ?? 'Boston';
 
 /** Quests available to every user regardless of where they are. */
-const everywhereQuests = [
+interface SeedQuest {
+  title: string;
+  description: string;
+  category: Category;
+  durationMin: number;
+  difficulty: number;
+}
+
+interface SeedMini {
+  title: string;
+  prompt: string;
+  category: Category;
+}
+
+const everywhereQuests: SeedQuest[] = [
   { title: 'Sunrise somewhere new', description: 'Watch the sun come up from a spot you have never seen it from.', category: 'NATURE', durationMin: 60, difficulty: 2 },
   { title: 'Order the thing you always skip', description: 'Go to a familiar place and order the item you have never once tried.', category: 'FOOD_DRINK', durationMin: 30, difficulty: 1 },
   { title: 'Walk a street you have never walked', description: 'Pick a street you pass constantly but have never gone down. Walk the whole thing.', category: 'ADVENTURE', durationMin: 30, difficulty: 1 },
@@ -40,7 +54,7 @@ const everywhereQuests = [
 ];
 
 /** City / campus quests — the local layer that makes the feed feel specific. */
-const cityQuests = [
+const cityQuests: SeedQuest[] = [
   { title: 'Find the oldest building downtown', description: 'Track down the oldest standing building in the city centre and stand in front of it.', category: 'CULTURE', durationMin: 60, difficulty: 2 },
   { title: 'Eat at the place with the longest queue', description: 'Whichever spot has the line out the door this week. Join it.', category: 'FOOD_DRINK', durationMin: 90, difficulty: 2 },
   { title: 'Cross the river on foot', description: 'Whichever bridge you have never walked. Both directions.', category: 'ADVENTURE', durationMin: 45, difficulty: 1 },
@@ -63,7 +77,7 @@ const cityQuests = [
 
 /** Fixed 20-mini pool, cycled 4 a day. Deliberately low-effort — a mini is the
  *  escape hatch that keeps a streak alive on a bad day. */
-const minis = [
+const minis: SeedMini[] = [
   { title: 'Ten-minute walk', prompt: 'Leave the building, walk ten minutes, come back a different way.', category: 'FITNESS' },
   { title: 'New drink', prompt: 'Order something you have never ordered before.', category: 'FOOD_DRINK' },
   { title: 'One photo', prompt: 'Take one photo of something you would normally walk past.', category: 'CREATIVE' },

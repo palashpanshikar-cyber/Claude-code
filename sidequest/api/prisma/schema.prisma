@@ -62,7 +62,7 @@ model Completion {
   id        String   @id @default(cuid())
   userId    String
   questId   String
-  photoUrl  String
+  photoKey  String
   review    String?
   rating    Int // 1-5
   // Local calendar date the completion counted for.

@@ -9,4 +9,4 @@ app.listen(config.port, () => {
   console.log(`photo storage: ${config.storage.driver}`);
 });
 
-if (config.runCron) startCron();
+if (config.enableCron) startCron();

@@ -1,4 +1,7 @@
-export function publicUser(user) {
+import type { Completion, MiniAssignment, MiniQuest, Quest, User } from '@prisma/client';
+import { photoUrlFor } from './storage.js';
+
+export function publicUser(user: User) {
   return {
     id: user.id,
     username: user.username,
@@ -11,7 +14,7 @@ export function publicUser(user) {
   };
 }
 
-export function publicQuest(quest, { completed } = {}) {
+export function publicQuest(quest: Quest, opts: { completed?: boolean } = {}) {
   return {
     id: quest.id,
     title: quest.title,
@@ -21,14 +24,15 @@ export function publicQuest(quest, { completed } = {}) {
     neighborhood: quest.neighborhood,
     durationMin: quest.durationMin,
     difficulty: quest.difficulty,
-    ...(completed === undefined ? {} : { completed }),
+    ...(opts.completed === undefined ? {} : { completed: opts.completed }),
   };
 }
 
-export function publicCompletion(completion) {
+/** Async because a private R2 bucket needs the photo URL presigned per read. */
+export async function publicCompletion(completion: Completion & { quest?: Quest }) {
   return {
     id: completion.id,
-    photoUrl: completion.photoUrl,
+    photoUrl: await photoUrlFor(completion.photoKey),
     review: completion.review,
     rating: completion.rating,
     localDay: completion.localDay,
@@ -37,7 +41,7 @@ export function publicCompletion(completion) {
   };
 }
 
-export function publicMini(assignment) {
+export function publicMini(assignment: MiniAssignment & { miniQuest: MiniQuest }) {
   return {
     assignmentId: assignment.id,
     id: assignment.miniQuest.id,

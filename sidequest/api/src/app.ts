@@ -1,4 +1,5 @@
-import express from 'express';
+import express, { type Express } from 'express';
+import cors from 'cors';
 import path from 'node:path';
 import { config } from './lib/config.js';
 import { authRouter } from './routes/auth.js';
@@ -8,12 +9,15 @@ import { meRouter } from './routes/me.js';
 import { minisRouter } from './routes/minis.js';
 import { errorHandler, notFound } from './middleware/error.js';
 
-export function createApp() {
+export function createApp(): Express {
   const app = express();
 
+  app.use(cors({ origin: config.corsOrigin }));
   app.use(express.json({ limit: '1mb' }));
 
-  app.get('/health', (req, res) => res.json({ ok: true }));
+  app.get('/health', (_req, res) => {
+    res.json({ ok: true });
+  });
 
   app.use('/auth', authRouter);
   app.use('/quests', questsRouter);
