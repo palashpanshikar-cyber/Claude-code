@@ -109,12 +109,15 @@ All routes except `/health` and `/auth/*` need `Authorization: Bearer <token>`.
 | GET | `/quests/categories` | Category list with display labels |
 | GET | `/quests/:id` | Quest detail + completion stats |
 | POST | `/completions` | Complete a quest (multipart photo) |
+| GET | `/completions/:id` | Single completion + its owner |
+| DELETE | `/completions/:id` | Remove your own completion |
 | GET | `/me` | Profile + streak + stats |
 | PATCH | `/me` | Update display name, city, timezone |
 | GET | `/me/completions` | Your completion grid |
 | GET | `/me/streak` | Streak stats + 30-day history |
 | GET | `/minis/today` | Today's 4 daily minis |
 | POST | `/minis/:assignmentId/complete` | Mark mini done |
+| GET | `/users/:idOrUsername/profile` | Public profile: stats, streak, grid |
 
 ### Feed filters
 
@@ -136,8 +139,18 @@ All routes except `/health` and `/auth/*` need `Authorization: Bearer <token>`.
 | `photo` | yes | JPEG/PNG/WebP/HEIC, max 10MB. One photo in v1. |
 | `review` | no | up to 1000 chars |
 
-Returns the completion and the updated streak. A quest can only be completed
-once per user (409 on a repeat).
+Returns the completion, the updated streak, and `milestone` — the streak
+milestone just crossed (7, 30, 100, 365) or `null`. It fires only on the exact
+day the number is hit, so the client celebrates once instead of every day after.
+
+A quest can only be completed once per user (409 on a repeat). This is stricter
+than once-per-day: same-day-only would let someone re-log a single quest forever
+to farm a streak.
+
+Deleting a completion rebuilds the streak from remaining activity rather than
+decrementing it, since removing a day's only activity can sever a run. The
+stored photo is left in the bucket — an orphaned object is recoverable where a
+deleted photo is not.
 
 ### Photo storage
 
@@ -159,6 +172,12 @@ before any job has run. The hourly `sweepStreaks` job exists to keep the stored
 column honest for anything that queries it directly (reminders, leaderboards).
 It runs hourly, not nightly, because "local midnight" happens 24+ times a day
 across timezones.
+
+**Streak breaks** are recorded to `StreakBreak` by the sweep, capturing the
+streak length *before* it is zeroed. That is the drop-off data — where people
+quit — and it is unrecoverable once the counter is overwritten. The job logs a
+JSON line on every run, including runs with nothing to do, because a silent job
+is indistinguishable from a broken one.
 
 **Daily minis** are a fixed 20-item pool cycled 4 a day, keyed off the day
 number — no recommender. With 4 a day the pool cycles every 5 days, which is

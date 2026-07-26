@@ -70,3 +70,13 @@ test('mini rotation handles a pool smaller than a day', () => {
   assert.equal(slots.length, MINIS_PER_DAY);
   for (const slot of slots) assert.ok(slot >= 0 && slot < 3);
 });
+
+test('consecutive days never serve the same four minis', () => {
+  for (let i = 0; i < 30; i += 1) {
+    const day = shiftDay('2026-03-01', i);
+    const today = slotsForDay(day, 20);
+    const tomorrow = slotsForDay(shiftDay(day, 1), 20);
+    const shared = today.filter((s) => tomorrow.includes(s));
+    assert.equal(shared.length, 0, `day ${day} repeats slots into the next day`);
+  }
+});

@@ -4,7 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
 import { localDay } from '../lib/day.js';
 import { assignmentsForDay } from '../services/minis.js';
-import { recordActivity } from '../services/streak.js';
+import { milestoneReached, recordActivity } from '../services/streak.js';
 import { publicMini } from '../lib/serialize.js';
 
 export const minisRouter = Router();
@@ -68,7 +68,11 @@ minisRouter.post('/:assignmentId/complete', async (req, res, next) => {
       return { updated, streak };
     });
 
-    res.json({ mini: publicMini(updated), streak });
+    res.json({
+      mini: publicMini(updated),
+      streak,
+      milestone: milestoneReached(streak.currentStreak),
+    });
   } catch (err) {
     next(err);
   }

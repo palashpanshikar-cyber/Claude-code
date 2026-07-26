@@ -44,6 +44,71 @@ export async function recordActivity(tx: Tx, user: User, day: string) {
   });
 }
 
+/** Milestones worth celebrating. Rule-based on purpose — badges build on these. */
+export const STREAK_MILESTONES = [7, 30, 100, 365] as const;
+
+/**
+ * The milestone this streak just crossed, if any.
+ *
+ * Only fires on the exact day the number is hit, so a client can celebrate once
+ * rather than every day after.
+ */
+export function milestoneReached(streak: number): number | null {
+  return STREAK_MILESTONES.find((m) => m === streak) ?? null;
+}
+
+/**
+ * Rebuilds a user's streak from their actual activity history.
+ *
+ * The incremental path (recordActivity) can't handle deletion — removing a
+ * completion may sever a run that the stored counter still believes in. Rather
+ * than trying to patch the counter, this recomputes from the days that really
+ * have activity, which is the only way to get it right.
+ */
+export async function recomputeStreak(tx: Tx, userId: string, timezone: string, at = new Date()) {
+  const [completions, minis] = await Promise.all([
+    tx.completion.findMany({
+      where: { userId },
+      select: { localDay: true },
+      distinct: ['localDay'],
+    }),
+    tx.miniAssignment.findMany({
+      where: { userId, completedAt: { not: null } },
+      select: { localDay: true },
+      distinct: ['localDay'],
+    }),
+  ]);
+
+  const days = [...new Set([...completions, ...minis].map((r) => r.localDay))].sort();
+
+  if (days.length === 0) {
+    return tx.user.update({
+      where: { id: userId },
+      data: { currentStreak: 0, longestStreak: 0, lastActiveDay: null },
+      select: { currentStreak: true, longestStreak: true, lastActiveDay: true },
+    });
+  }
+
+  let longest = 1;
+  let run = 1;
+  for (let i = 1; i < days.length; i += 1) {
+    run = daysBetween(days[i - 1]!, days[i]!) === 1 ? run + 1 : 1;
+    longest = Math.max(longest, run);
+  }
+
+  // `run` now holds the length of the run ending on the most recent active day.
+  // That only counts as a live streak if it reaches today or yesterday.
+  const lastActiveDay = days[days.length - 1]!;
+  const gap = daysBetween(lastActiveDay, localDay(timezone, at));
+  const current = gap <= 1 ? run : 0;
+
+  return tx.user.update({
+    where: { id: userId },
+    data: { currentStreak: current, longestStreak: longest, lastActiveDay },
+    select: { currentStreak: true, longestStreak: true, lastActiveDay: true },
+  });
+}
+
 /**
  * The streak as the user should see it right now.
  *

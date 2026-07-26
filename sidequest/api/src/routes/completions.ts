@@ -5,8 +5,8 @@ import { prisma } from '../lib/prisma.js';
 import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
 import { localDay } from '../lib/day.js';
 import { ALLOWED_IMAGE_MIME, storePhoto } from '../lib/storage.js';
-import { recordActivity } from '../services/streak.js';
-import { publicCompletion } from '../lib/serialize.js';
+import { milestoneReached, recomputeStreak, recordActivity } from '../services/streak.js';
+import { publicCompletion, publicUser } from '../lib/serialize.js';
 
 export const completionsRouter = Router();
 
@@ -78,13 +78,65 @@ completionsRouter.post('/', requireAuth, upload.single('photo'), async (req, res
       return { completion, streak };
     });
 
-    res.status(201).json({ completion: await publicCompletion(completion), streak });
+    res.status(201).json({
+      completion: await publicCompletion(completion),
+      streak,
+      milestone: milestoneReached(streak.currentStreak),
+    });
   } catch (err) {
     // Two devices tapping "complete" at once lose the unique-constraint race.
     if ((err as { code?: string }).code === 'P2002') {
       res.status(409).json({ error: 'You have already completed this quest' });
       return;
     }
+    next(err);
+  }
+});
+
+completionsRouter.get('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const completion = await prisma.completion.findUnique({
+      where: { id: req.params.id },
+      include: { quest: true, user: true },
+    });
+
+    if (!completion) {
+      res.status(404).json({ error: 'Completion not found' });
+      return;
+    }
+
+    // Readable by any signed-in user — completions are the public artifact the
+    // profile grid and (in Phase 2) the friend feed are both built from.
+    res.json({
+      completion: await publicCompletion(completion),
+      user: publicUser(completion.user),
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+completionsRouter.delete('/:id', requireAuth, async (req, res, next) => {
+  try {
+    const user = (req as AuthedRequest).user;
+    const completion = await prisma.completion.findUnique({ where: { id: req.params.id } });
+
+    if (!completion || completion.userId !== user.id) {
+      res.status(404).json({ error: 'Completion not found' });
+      return;
+    }
+
+    const streak = await prisma.$transaction(async (tx) => {
+      await tx.completion.delete({ where: { id: completion.id } });
+      // Removing a day's only activity can sever a run, so the streak is
+      // rebuilt from history rather than decremented.
+      return recomputeStreak(tx, user.id, user.timezone);
+    });
+
+    // The stored object is deliberately left in place: it is cheap, and an
+    // orphaned key is recoverable where a deleted photo is not.
+    res.json({ deleted: completion.id, streak });
+  } catch (err) {
     next(err);
   }
 });

@@ -395,3 +395,178 @@ test('unknown routes return a json 404', async () => {
   assert.equal(res.status, 404);
   assert.equal(res.body.error, 'Not found');
 });
+
+test('a completion is readable by id, by anyone signed in', async () => {
+  const { token: mine } = await registerUser(request);
+  const { token: theirs } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+
+  const created = await completeQuest(mine, quest!.id, { rating: 3, review: 'ok' });
+  const id = created.body.completion.id;
+
+  const res = await request(app).get(`/completions/${id}`).set(auth(theirs));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.completion.rating, 3);
+  assert.equal(res.body.completion.quest.title, quest!.title);
+  assert.ok(res.body.user.username, 'the owner comes back with it');
+  assert.equal(res.body.user.passwordHash, undefined);
+
+  assert.equal((await request(app).get('/completions/nope').set(auth(mine))).status, 404);
+});
+
+test('deleting a completion removes it and rebuilds the streak', async () => {
+  const { token, user } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+
+  const created = await completeQuest(token, quest!.id);
+  assert.equal(created.body.streak.currentStreak, 1);
+
+  const res = await request(app)
+    .delete(`/completions/${created.body.completion.id}`)
+    .set(auth(token));
+  assert.equal(res.status, 200);
+  // Its only activity is gone, so the streak collapses rather than lingering.
+  assert.equal(res.body.streak.currentStreak, 0);
+  assert.equal(res.body.streak.lastActiveDay, null);
+
+  const grid = await request(app).get('/me/completions').set(auth(token));
+  assert.equal(grid.body.completions.length, 0);
+
+  const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+  assert.equal(fresh.currentStreak, 0);
+});
+
+test('deleting one of two same-day completions keeps the streak', async () => {
+  const { token } = await registerUser(request);
+  const [a, b] = await seedQuests(2);
+
+  const first = await completeQuest(token, a!.id);
+  await completeQuest(token, b!.id);
+
+  const res = await request(app)
+    .delete(`/completions/${first.body.completion.id}`)
+    .set(auth(token));
+  assert.equal(res.status, 200);
+  assert.equal(res.body.streak.currentStreak, 1, 'the day still has activity');
+});
+
+test('a completion belonging to someone else cannot be deleted', async () => {
+  const { token: mine } = await registerUser(request);
+  const { token: theirs } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+
+  const created = await completeQuest(mine, quest!.id);
+  const res = await request(app)
+    .delete(`/completions/${created.body.completion.id}`)
+    .set(auth(theirs));
+  assert.equal(res.status, 404);
+
+  assert.equal(await prisma.completion.count(), 1, 'it survives');
+});
+
+test('crossing a milestone is reported once, on the day it is hit', async () => {
+  const { token, user } = await registerUser(request);
+  const [a, b] = await seedQuests(2);
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { currentStreak: 6, longestStreak: 6, lastActiveDay: yesterday },
+  });
+
+  const hit = await completeQuest(token, a!.id);
+  assert.equal(hit.body.streak.currentStreak, 7);
+  assert.equal(hit.body.milestone, 7);
+
+  // Same day again: still 7, but no second celebration for a new completion.
+  const again = await completeQuest(token, b!.id);
+  assert.equal(again.body.streak.currentStreak, 7);
+  assert.equal(again.body.milestone, 7);
+});
+
+test('an ordinary streak day reports no milestone', async () => {
+  const { token } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+  const res = await completeQuest(token, quest!.id);
+  assert.equal(res.body.milestone, null);
+});
+
+test('public profile works by id and by username', async () => {
+  const { token, user } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+  await completeQuest(token, quest!.id);
+
+  const byId = await request(app).get(`/users/${user.id}/profile`).set(auth(token));
+  assert.equal(byId.status, 200);
+  assert.equal(byId.body.stats.completions, 1);
+  assert.equal(byId.body.completions.length, 1);
+  assert.equal(byId.body.streak.current, 1);
+  assert.equal(byId.body.user.passwordHash, undefined);
+
+  const username = byId.body.user.username;
+  const byName = await request(app).get(`/users/${username}/profile`).set(auth(token));
+  assert.equal(byName.status, 200);
+  assert.equal(byName.body.user.id, user.id);
+
+  assert.equal((await request(app).get('/users/ghost/profile').set(auth(token))).status, 404);
+});
+
+test('a profile with zero completions returns empty, not 500', async () => {
+  const { token, user } = await registerUser(request);
+
+  const res = await request(app).get(`/users/${user.id}/profile`).set(auth(token));
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.completions, []);
+  assert.equal(res.body.nextCursor, null);
+  assert.equal(res.body.stats.completions, 0);
+  assert.equal(res.body.stats.categoriesExplored, 0);
+  assert.equal(res.body.streak.current, 0);
+  assert.equal(res.body.streak.lastActiveDay, null);
+});
+
+test('the sweep breaks stale streaks and records them for analytics', async () => {
+  const { token, user } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+  await completeQuest(token, quest!.id);
+
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { currentStreak: 12, longestStreak: 12, lastActiveDay: '2020-01-01' },
+  });
+
+  const { sweepStreaks } = await import('../src/jobs/cron.js');
+  const result = await sweepStreaks();
+  assert.equal(result.broken, 1);
+  assert.ok(result.scanned >= 1);
+  assert.ok(typeof result.durationMs === 'number');
+
+  const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+  assert.equal(fresh.currentStreak, 0);
+  assert.equal(fresh.longestStreak, 12, 'the record survives the break');
+
+  const breaks = await prisma.streakBreak.findMany({ where: { userId: user.id } });
+  assert.equal(breaks.length, 1);
+  assert.equal(breaks[0]!.streakLength, 12, 'captured before it was zeroed');
+  assert.equal(breaks[0]!.lastActiveDay, '2020-01-01');
+
+  // A second pass has nothing left to break.
+  assert.equal((await sweepStreaks()).broken, 0);
+});
+
+test('the sweep leaves a streak that is merely open today', async () => {
+  const { token, user } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+  await completeQuest(token, quest!.id);
+
+  const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { currentStreak: 3, lastActiveDay: yesterday },
+  });
+
+  const { sweepStreaks } = await import('../src/jobs/cron.js');
+  assert.equal((await sweepStreaks()).broken, 0);
+
+  const fresh = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
+  assert.equal(fresh.currentStreak, 3);
+});

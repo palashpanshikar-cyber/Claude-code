@@ -6,6 +6,7 @@ import { authRouter } from './routes/auth.js';
 import { questsRouter } from './routes/quests.js';
 import { completionsRouter } from './routes/completions.js';
 import { meRouter } from './routes/me.js';
+import { usersRouter } from './routes/users.js';
 import { minisRouter } from './routes/minis.js';
 import { errorHandler, notFound } from './middleware/error.js';
 
@@ -27,6 +28,7 @@ export function createApp(): Express {
   app.use('/quests', questsRouter);
   app.use('/completions', completionsRouter);
   app.use('/me', meRouter);
+  app.use('/users', usersRouter);
   app.use('/minis', minisRouter);
 
   // Local-disk photos only; with R2 configured the bucket serves them directly.

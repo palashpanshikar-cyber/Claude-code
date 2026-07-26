@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { liveStreak } from '../src/services/streak.js';
+import { liveStreak, milestoneReached } from '../src/services/streak.js';
 
 const at = new Date('2026-03-10T12:00:00Z');
 const base = { timezone: 'UTC', currentStreak: 7, longestStreak: 12 };
@@ -39,4 +39,13 @@ test('the streak is judged in the user own timezone', () => {
   assert.equal(kiwi.today, '2026-03-11');
   assert.equal(kiwi.current, 7);
   assert.equal(kiwi.activeToday, false);
+});
+
+test('milestones fire only on the exact day they are reached', () => {
+  assert.equal(milestoneReached(6), null);
+  assert.equal(milestoneReached(7), 7);
+  assert.equal(milestoneReached(8), null);
+  assert.equal(milestoneReached(30), 30);
+  assert.equal(milestoneReached(100), 100);
+  assert.equal(milestoneReached(0), null);
 });

@@ -39,8 +39,26 @@ model User {
   // need a migration against live data later.
   following Follow[] @relation("follower")
   followers Follow[] @relation("followed")
+  streakBreaks StreakBreak[]
 
   @@index([lastActiveDay])
+}
+
+/// Analytics: one row each time a streak is broken, written by the sweep job.
+/// Answers "how far do people get before they drop off?".
+model StreakBreak {
+  id            String   @id @default(cuid())
+  userId        String
+  /// How long the streak was when it broke.
+  streakLength  Int
+  /// Last day the user was actually active, in their local calendar.
+  lastActiveDay String?
+  brokenAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, brokenAt])
+  @@index([brokenAt])
 }
 
 /// Open follow model — no approval step, matching the product spec.
