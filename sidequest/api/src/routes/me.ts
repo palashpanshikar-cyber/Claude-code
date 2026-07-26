@@ -1,13 +1,15 @@
 import { Router } from 'express';
 import multer from 'multer';
+import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
 import { isValidTimezone } from '../lib/day.js';
 import { liveStreak } from '../services/streak.js';
 import { publicCompletion, publicUser, publicUserWithAvatar } from '../lib/serialize.js';
-import { ALLOWED_IMAGE_MIME, storePhoto } from '../lib/storage.js';
+import { ALLOWED_IMAGE_MIME, photoUrlFor, storePhoto } from '../lib/storage.js';
 import { processImage } from '../lib/images.js';
+import { uploadLimiter } from '../middleware/rateLimit.js';
 
 export const meRouter = Router();
 
@@ -128,7 +130,7 @@ const avatarUpload = multer({
   },
 });
 
-meRouter.put('/avatar', avatarUpload.single('photo'), async (req, res, next) => {
+meRouter.put('/avatar', uploadLimiter, avatarUpload.single('photo'), async (req, res, next) => {
   try {
     const user = (req as AuthedRequest).user;
 
@@ -166,6 +168,124 @@ meRouter.delete('/avatar', async (req, res, next) => {
       data: { avatarKey: null },
     });
     res.json({ user: await publicUserWithAvatar(updated) });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const deleteAccountSchema = z.object({
+  // Re-authentication: a stolen token should not be enough to destroy an
+  // account, and deletion is the one action here with no undo.
+  password: z.string().min(1),
+});
+
+meRouter.delete('/', async (req, res, next) => {
+  try {
+    const user = (req as AuthedRequest).user;
+    const { password } = deleteAccountSchema.parse(req.body ?? {});
+
+    if (!(await bcrypt.compare(password, user.passwordHash))) {
+      res.status(401).json({ error: 'Password is incorrect' });
+      return;
+    }
+
+    // Collect the object keys before the rows cascade away, or the bytes are
+    // unreachable and leak forever.
+    const photos = await prisma.completion.findMany({
+      where: { userId: user.id },
+      select: { photoKey: true },
+    });
+    const keys = [...photos.map((p) => p.photoKey), ...(user.avatarKey ? [user.avatarKey] : [])];
+
+    await prisma.$transaction([
+      prisma.orphanedObject.createMany({
+        data: keys.map((objectKey) => ({ objectKey })),
+        skipDuplicates: true,
+      }),
+      // Completions, mini assignments, streak breaks and follows all cascade.
+      // Quests they submitted survive with createdById set to null — an approved
+      // quest is content other people are mid-way through, not personal data.
+      prisma.user.delete({ where: { id: user.id } }),
+    ]);
+
+    // The bytes go on a queue rather than being deleted inline: the account
+    // delete must succeed even if object storage is unreachable, or a user who
+    // wants out cannot get out. See sweepOrphanedObjects.
+    res.json({ deleted: true, objectsQueued: keys.length });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * Everything held about the caller, in one response.
+ *
+ * Deliberately built from the same rows the app reads rather than a curated
+ * subset — an export that omits something is worse than none at all.
+ */
+meRouter.get('/export', async (req, res, next) => {
+  try {
+    const user = (req as AuthedRequest).user;
+
+    const [completions, minis, breaks, submissions] = await Promise.all([
+      prisma.completion.findMany({
+        where: { userId: user.id },
+        include: { quest: { select: { title: true, category: true, city: true } } },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.miniAssignment.findMany({
+        where: { userId: user.id },
+        include: { miniQuest: { select: { title: true, prompt: true } } },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.streakBreak.findMany({ where: { userId: user.id }, orderBy: { brokenAt: 'asc' } }),
+      prisma.quest.findMany({
+        where: { createdById: user.id },
+        select: { id: true, title: true, description: true, status: true, createdAt: true },
+      }),
+    ]);
+
+    res.setHeader('Content-Disposition', 'attachment; filename="sidequest-export.json"');
+    res.json({
+      exportedAt: new Date().toISOString(),
+      account: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        displayName: user.displayName,
+        city: user.city,
+        timezone: user.timezone,
+        createdAt: user.createdAt,
+        currentStreak: user.currentStreak,
+        longestStreak: user.longestStreak,
+        lastActiveDay: user.lastActiveDay,
+      },
+      completions: await Promise.all(
+        completions.map(async (c) => ({
+          questTitle: c.quest.title,
+          category: c.quest.category,
+          city: c.quest.city,
+          rating: c.rating,
+          review: c.review,
+          localDay: c.localDay,
+          completedAt: c.createdAt,
+          photoUrl: await photoUrlFor(c.photoKey),
+        })),
+      ),
+      dailyMinis: minis.map((m) => ({
+        title: m.miniQuest.title,
+        prompt: m.miniQuest.prompt,
+        day: m.localDay,
+        completedAt: m.completedAt,
+        note: m.note,
+      })),
+      streakBreaks: breaks.map((b) => ({
+        streakLength: b.streakLength,
+        lastActiveDay: b.lastActiveDay,
+        brokenAt: b.brokenAt,
+      })),
+      submittedQuests: submissions,
+    });
   } catch (err) {
     next(err);
   }

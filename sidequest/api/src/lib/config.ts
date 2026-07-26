@@ -35,3 +35,38 @@ export const config = {
     },
   },
 } as const;
+
+/**
+ * Warns about settings that are fine in development and dangerous in production.
+ *
+ * Deliberately warnings rather than a hard exit: a misconfigured deploy that
+ * still serves traffic is recoverable, one that refuses to boot at 2am is not.
+ * The exception is JWT_SECRET, which `required()` already makes fatal above.
+ */
+export function checkProductionConfig(log: (msg: string) => void = console.warn): string[] {
+  if (config.env !== 'production') return [];
+
+  const warnings: string[] = [];
+
+  if (config.storage.driver === 'local') {
+    warnings.push(
+      'R2 is not configured, so photos are on local disk and served with no authorisation. Uploads will also be lost on redeploy.',
+    );
+  }
+  if (config.corsOrigin === '*') {
+    warnings.push('CORS_ORIGIN is "*". Restrict it to your own origins.');
+  }
+  if (!config.trustProxy) {
+    warnings.push(
+      'TRUST_PROXY is false. Behind a load balancer every request looks like one IP, so rate limiting protects nobody.',
+    );
+  }
+  if (config.jwtSecret.length < 32) {
+    warnings.push(
+      'JWT_SECRET is shorter than 32 characters. Generate one with: openssl rand -hex 32',
+    );
+  }
+
+  for (const warning of warnings) log(`[config] ${warning}`);
+  return warnings;
+}

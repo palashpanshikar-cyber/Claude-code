@@ -1,6 +1,7 @@
 import cron, { type ScheduledTask } from 'node-cron';
 import { prisma } from '../lib/prisma.js';
 import { localDay, shiftDay } from '../lib/day.js';
+import { deleteObject } from '../lib/storage.js';
 
 export interface SweepResult {
   scanned: number;
@@ -59,7 +60,11 @@ export function startCron(): ScheduledTask {
   return cron.schedule('0 * * * *', async () => {
     const startedAt = new Date();
     try {
-      const result = await sweepStreaks(startedAt);
+      const [streaks, objects] = await Promise.all([
+        sweepStreaks(startedAt),
+        sweepOrphanedObjects(),
+      ]);
+      const result = { ...streaks, objectsDeleted: objects.deleted, objectsFailed: objects.failed };
       // Logged on every run, not just when something breaks — a job that goes
       // silent is indistinguishable from a job that has nothing to do.
       console.log(
@@ -81,4 +86,45 @@ export function startCron(): ScheduledTask {
       );
     }
   });
+}
+
+/** How many failed attempts before an object is left alone for manual review. */
+const MAX_CLEANUP_ATTEMPTS = 5;
+
+/**
+ * Deletes stored objects whose owning row is gone.
+ *
+ * Runs separately from the request that orphaned them so that account deletion
+ * never depends on object storage being reachable. Failures are counted rather
+ * than retried forever — a key that will not delete after five passes is a
+ * bug to look at, not something to hammer every hour.
+ */
+export async function sweepOrphanedObjects(limit = 200): Promise<{
+  deleted: number;
+  failed: number;
+}> {
+  const pending = await prisma.orphanedObject.findMany({
+    where: { attempts: { lt: MAX_CLEANUP_ATTEMPTS } },
+    orderBy: { createdAt: 'asc' },
+    take: limit,
+  });
+
+  let deleted = 0;
+  let failed = 0;
+
+  for (const object of pending) {
+    try {
+      await deleteObject(object.objectKey);
+      await prisma.orphanedObject.delete({ where: { id: object.id } });
+      deleted += 1;
+    } catch {
+      await prisma.orphanedObject.update({
+        where: { id: object.id },
+        data: { attempts: { increment: 1 } },
+      });
+      failed += 1;
+    }
+  }
+
+  return { deleted, failed };
 }

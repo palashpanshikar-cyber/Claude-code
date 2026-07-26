@@ -1,6 +1,8 @@
 import { createApp } from './app.js';
-import { config } from './lib/config.js';
+import { checkProductionConfig, config } from './lib/config.js';
 import { startCron } from './jobs/cron.js';
+
+checkProductionConfig();
 
 const app = createApp();
 

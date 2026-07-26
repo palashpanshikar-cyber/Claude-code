@@ -9,6 +9,15 @@ export interface ProcessedImage {
   passthrough: boolean;
 }
 
+/**
+ * Hard cap on decoded pixels, independent of file size.
+ *
+ * A 40KB PNG can decode to gigabytes — the classic decompression bomb. sharp
+ * has a default limit but it is generous (~268MP); no phone camera exceeds
+ * 50MP, so anything above that is hostile, not a photo.
+ */
+const MAX_INPUT_PIXELS = 50_000_000;
+
 export const IMAGE_PRESETS = {
   /** Completion photos: big enough for a full-bleed phone screen at 3x. */
   completion: { maxDim: 1600, quality: 82 },
@@ -36,7 +45,7 @@ export async function processImage(
   const { maxDim, quality } = IMAGE_PRESETS[preset];
 
   try {
-    const pipeline = sharp(buffer, { failOn: 'none' })
+    const pipeline = sharp(buffer, { failOn: 'none', limitInputPixels: MAX_INPUT_PIXELS })
       .rotate() // applies EXIF orientation, then discards the tag
       .resize({ width: maxDim, height: maxDim, fit: 'inside', withoutEnlargement: true })
       .jpeg({ quality, mozjpeg: true });
@@ -49,7 +58,12 @@ export async function processImage(
       height: info.height,
       passthrough: false,
     };
-  } catch {
+  } catch (err) {
+    // A pixel-limit breach is hostile input, not an unusual camera format, and
+    // must not fall through to storing the original bytes.
+    if (err instanceof Error && /pixel|limitInputPixels/i.test(err.message)) {
+      throw Object.assign(new Error('Image dimensions are too large'), { status: 400 });
+    }
     // A format sharp cannot decode is not a reason to lose the user's photo —
     // they already did the quest. Store the original and move on.
     return { buffer, mimetype: originalMimetype, passthrough: true };

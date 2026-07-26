@@ -73,6 +73,20 @@ model StreakBreak {
   @@index([brokenAt])
 }
 
+/// Objects whose owning row is gone, queued for removal from storage.
+///
+/// Deletion of an account must succeed even when object storage is unreachable
+/// — otherwise a user who wants out cannot get out — so the bytes are cleaned
+/// up asynchronously instead of inline.
+model OrphanedObject {
+  id        String   @id @default(cuid())
+  objectKey String   @unique
+  createdAt DateTime @default(now())
+  attempts  Int      @default(0)
+
+  @@index([createdAt])
+}
+
 /// Open follow model — no approval step, matching the product spec.
 /// Unused in Phase 1.
 model Follow {

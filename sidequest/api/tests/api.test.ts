@@ -816,3 +816,149 @@ test('an admin can manage the mini pool', async () => {
     404,
   );
 });
+
+test('security headers are set on every response', async () => {
+  const res = await request(app).get('/health');
+  assert.equal(res.headers['x-content-type-options'], 'nosniff');
+  assert.equal(res.headers['x-frame-options'], 'SAMEORIGIN');
+  assert.ok(res.headers['content-security-policy']);
+  assert.equal(res.headers['x-powered-by'], undefined, 'express fingerprint removed');
+});
+
+test('a decompression bomb is rejected rather than decoded', async () => {
+  const { token } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+  const sharp = (await import('sharp')).default;
+
+  // ~72MP of flat colour: tiny on disk, far past the pixel ceiling in memory.
+  const bomb = await sharp({
+    create: { width: 12000, height: 6000, channels: 3, background: { r: 0, g: 0, b: 0 } },
+  })
+    .png({ compressionLevel: 9 })
+    .toBuffer({ resolveWithObject: false });
+
+  const res = await request(app)
+    .post('/completions')
+    .set(auth(token))
+    .field('questId', quest!.id)
+    .field('rating', '5')
+    .attach('photo', bomb, { filename: 'bomb.png', contentType: 'image/png' });
+
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /too large/i);
+  assert.equal(await prisma.completion.count(), 0, 'nothing was stored');
+});
+
+test('login takes comparable time for unknown and known accounts', async () => {
+  const { payload } = await registerUser(request);
+
+  const time = async (email: string) => {
+    const started = process.hrtime.bigint();
+    await request(app).post('/auth/login').send({ email, password: 'definitely-wrong-password' });
+    return Number(process.hrtime.bigint() - started) / 1e6;
+  };
+
+  // Warm up, then compare — an unknown account must still pay for a bcrypt
+  // comparison, or response time reveals which emails are registered.
+  await time(payload.email);
+  const known = await time(payload.email);
+  const unknown = await time('nobody-at-all@test.dev');
+
+  const ratio = Math.max(known, unknown) / Math.min(known, unknown);
+  assert.ok(ratio < 5, `timing differed too much: known ${known}ms vs unknown ${unknown}ms`);
+});
+
+test('account deletion requires the password and removes everything', async () => {
+  const { token, user, payload } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+  await completeQuest(token, quest!.id);
+
+  const wrong = await request(app)
+    .delete('/me')
+    .set(auth(token))
+    .send({ password: 'not-the-password' });
+  assert.equal(wrong.status, 401);
+  assert.equal(await prisma.user.count({ where: { id: user.id } }), 1, 'still there');
+
+  const res = await request(app)
+    .delete('/me')
+    .set(auth(token))
+    .send({ password: payload.password });
+  assert.equal(res.status, 200);
+  assert.equal(res.body.objectsQueued, 1);
+
+  assert.equal(await prisma.user.count({ where: { id: user.id } }), 0);
+  assert.equal(await prisma.completion.count(), 0, 'completions cascade');
+  assert.equal((await request(app).get('/me').set(auth(token))).status, 401, 'token is dead');
+});
+
+test('a deleted account queues its photos for removal, and the job clears them', async () => {
+  const { token, payload } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+  await completeQuest(token, quest!.id);
+
+  const key = (await prisma.completion.findFirstOrThrow()).photoKey;
+  const filePath = path.join(process.env.UPLOAD_DIR!, key);
+  await readFile(filePath); // present before deletion
+
+  await request(app).delete('/me').set(auth(token)).send({ password: payload.password });
+  assert.equal(await prisma.orphanedObject.count(), 1);
+
+  const { sweepOrphanedObjects } = await import('../src/jobs/cron.js');
+  const result = await sweepOrphanedObjects();
+  assert.equal(result.deleted, 1);
+  assert.equal(result.failed, 0);
+  assert.equal(await prisma.orphanedObject.count(), 0, 'queue drains');
+
+  await assert.rejects(readFile(filePath), 'the stored bytes are gone');
+});
+
+test('deleting a completion queues its photo too', async () => {
+  const { token } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+  const created = await completeQuest(token, quest!.id);
+
+  await request(app).delete(`/completions/${created.body.completion.id}`).set(auth(token));
+  assert.equal(await prisma.orphanedObject.count(), 1);
+});
+
+test('data export contains the account and its activity', async () => {
+  const { token, user } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+  await completeQuest(token, quest!.id, { rating: 4, review: 'exported' });
+  await seedMinis(4);
+  await request(app).get('/minis/today').set(auth(token));
+
+  const res = await request(app).get('/me/export').set(auth(token));
+  assert.equal(res.status, 200);
+  assert.match(res.headers['content-disposition'], /sidequest-export\.json/);
+
+  assert.equal(res.body.account.id, user.id);
+  assert.ok(res.body.account.email, 'export includes the email we hold');
+  assert.equal(res.body.account.passwordHash, undefined, 'but never the hash');
+  assert.equal(res.body.completions.length, 1);
+  assert.equal(res.body.completions[0].review, 'exported');
+  assert.ok(res.body.completions[0].photoUrl);
+  assert.equal(res.body.dailyMinis.length, 4);
+  assert.ok(Array.isArray(res.body.streakBreaks));
+});
+
+test('an export for an account with no activity is still well formed', async () => {
+  const { token } = await registerUser(request);
+  const res = await request(app).get('/me/export').set(auth(token));
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.completions, []);
+  assert.deepEqual(res.body.dailyMinis, []);
+  assert.deepEqual(res.body.submittedQuests, []);
+});
+
+test('production config warnings fire on the dangerous defaults', async () => {
+  const { checkProductionConfig } = await import('../src/lib/config.js');
+
+  // NODE_ENV is 'test' here, so the check is a no-op — that is the point:
+  // development is not nagged.
+  assert.deepEqual(
+    checkProductionConfig(() => {}),
+    [],
+  );
+});

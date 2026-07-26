@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/admin.js';
+import { submissionLimiter } from '../middleware/rateLimit.js';
 import { publicQuest } from '../lib/serialize.js';
 
 export const questsRouter = Router();
@@ -135,7 +136,7 @@ const submitSchema = z.object({
  * User-submitted quests. They land PENDING and stay out of the feed until an
  * admin approves — quest supply is the product, so it cannot be open season.
  */
-questsRouter.post('/', requireAuth, async (req, res, next) => {
+questsRouter.post('/', requireAuth, submissionLimiter, async (req, res, next) => {
   try {
     const user = (req as AuthedRequest).user;
     const input = submitSchema.parse(req.body);

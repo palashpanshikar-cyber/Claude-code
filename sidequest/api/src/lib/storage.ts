@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import {
+  DeleteObjectCommand,
+  GetObjectCommand,
+  PutObjectCommand,
+  S3Client,
+} from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config } from './config.js';
 
@@ -96,4 +101,14 @@ export async function photoUrlFor(key: string): Promise<string> {
     new GetObjectCommand({ Bucket: config.storage.r2.bucketName, Key: key }),
     { expiresIn: SIGNED_URL_TTL_SECONDS },
   );
+}
+
+/** Removes a stored object. Missing objects are not an error. */
+export async function deleteObject(key: string): Promise<void> {
+  if (config.storage.driver === 'r2') {
+    await getS3().send(new DeleteObjectCommand({ Bucket: config.storage.r2.bucketName, Key: key }));
+    return;
+  }
+
+  await rm(path.join(config.storage.localDir, key), { force: true });
 }

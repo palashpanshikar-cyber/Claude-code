@@ -1,5 +1,6 @@
 import express, { type Express } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import path from 'node:path';
 import { config } from './lib/config.js';
 import { authRouter } from './routes/auth.js';
@@ -9,6 +10,7 @@ import { meRouter } from './routes/me.js';
 import { usersRouter } from './routes/users.js';
 import { minisRouter } from './routes/minis.js';
 import { errorHandler, notFound } from './middleware/error.js';
+import { globalLimiter } from './middleware/rateLimit.js';
 
 export function createApp(): Express {
   const app = express();
@@ -17,8 +19,22 @@ export function createApp(): Express {
   // the load balancer's and the rate limiter keys everyone into one bucket.
   if (config.trustProxy) app.set('trust proxy', 1);
 
+  // nosniff matters most here: an upload that sharp could not decode is stored
+  // as-is, and without it a browser could sniff those bytes as something
+  // executable. Also removes x-powered-by and sets HSTS/frame options.
+  app.use(
+    helmet({
+      // The API serves JSON and images, never HTML, so a restrictive CSP costs
+      // nothing and blocks any accidental HTML response from doing anything.
+      contentSecurityPolicy: {
+        directives: { defaultSrc: ["'none'"], imgSrc: ["'self'"], frameAncestors: ["'none'"] },
+      },
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
   app.use(cors({ origin: config.corsOrigin }));
   app.use(express.json({ limit: '1mb' }));
+  app.use(globalLimiter);
 
   app.get('/health', (_req, res) => {
     res.json({ ok: true });

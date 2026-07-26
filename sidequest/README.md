@@ -10,7 +10,7 @@ layer, no badges, no bucket list — those are Phase 2/3 and deliberately absent
 - **API:** TypeScript, Node.js, Express, Prisma, PostgreSQL
 - **Mobile:** Expo (React Native) — not started
 - **Storage:** Cloudflare R2 for completion photos (falls back to local disk)
-- **Jobs:** node-cron for the streak sweep
+- **Jobs:** node-cron for the streak sweep and orphaned-photo cleanup
 - **Images:** sharp for resize/re-encode on upload
 
 ## Project structure
@@ -20,7 +20,7 @@ sidequest/
 ├── api/          # Express backend (TypeScript, strict)
 │   ├── prisma/   # schema, migrations, seed content
 │   ├── src/
-│   └── tests/    # 62 tests, unit + HTTP integration
+│   └── tests/    # 71 tests, unit + HTTP integration
 └── mobile/       # Expo app (not started)
 ```
 
@@ -84,6 +84,25 @@ Override the test database with `TEST_DATABASE_URL`.
 and a build on every push touching `sidequest/`, against a real Postgres service
 container.
 
+## Security and privacy
+
+`SECURITY.md` documents the controls, the reasoning behind the non-obvious ones,
+and the gaps that are accepted deliberately. `PRIVACY.md` is a working draft —
+it describes what the code actually does, but the placeholders need your details
+and it needs review by someone qualified before you publish it.
+
+Two things worth knowing without reading either:
+
+- **Completions are visible to every signed-in user.** That's the product, but
+  it means there is no private log.
+- **EXIF is stripped from every upload**, GPS included, so a photo taken at
+  home doesn't carry your address into the feed.
+
+Account deletion (`DELETE /me`) and data export (`GET /me/export`) are self-serve,
+because a privacy policy promising them has to be backed by endpoints that exist.
+Deletion needs the password re-entered — a stolen token shouldn't be enough to
+destroy an account.
+
 ## Auth model
 
 Long-lived JWT (`JWT_EXPIRES_IN`, default 7d) with re-login on expiry — **no
@@ -120,6 +139,8 @@ All routes except `/health` and `/auth/*` need `Authorization: Bearer <token>`.
 | DELETE | `/me/avatar` | Remove profile photo |
 | GET | `/me/completions` | Your completion grid |
 | GET | `/me/streak` | Streak stats + 30-day history |
+| GET | `/me/export` | Everything we hold about you, as JSON |
+| DELETE | `/me` | Delete your account (password required) |
 | GET | `/minis/today` | Today's 4 daily minis |
 | POST | `/minis/:assignmentId/complete` | Mark mini done |
 | GET | `/users/:idOrUsername/profile` | Public profile: stats, streak, grid |
@@ -169,9 +190,10 @@ than once-per-day: same-day-only would let someone re-log a single quest forever
 to farm a streak.
 
 Deleting a completion rebuilds the streak from remaining activity rather than
-decrementing it, since removing a day's only activity can sever a run. The
-stored photo is left in the bucket — an orphaned object is recoverable where a
-deleted photo is not.
+decrementing it, since removing a day's only activity can sever a run. Its photo
+is queued in `OrphanedObject` and removed from storage by the hourly job — the
+delete itself never blocks on object storage being reachable, which is what
+makes account deletion dependable.
 
 ### Quest moderation
 
@@ -246,6 +268,11 @@ See `api/.env.example`. Notable:
 - `R2_ACCOUNT_ID` — blank means photos go to local disk; setting it switches to R2
 - `R2_PUBLIC_URL` — blank means photo URLs are presigned instead of public
 - `CORS_ORIGIN` — defaults to `*`; lock it down once the app ships
+- `TRUST_PROXY` — set `true` behind Railway/Render or rate limiting is useless
+
+Running with `NODE_ENV=production` logs a warning for each of these that is
+still on a development default, and refuses to start at all without a
+`JWT_SECRET`.
 
 ## Not built yet (by design)
 

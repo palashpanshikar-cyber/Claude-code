@@ -9,6 +9,16 @@ import { authLimiter, registerLimiter } from '../middleware/rateLimit.js';
 
 export const authRouter = Router();
 
+/**
+ * A real bcrypt hash of a throwaway value, compared against when no account
+ * matches so that "unknown email" and "wrong password" take the same time.
+ *
+ * Without it, an unknown email returns in ~1ms and a real one in ~80ms, which
+ * is a reliable account-enumeration oracle regardless of the identical
+ * response body.
+ */
+const DUMMY_HASH = bcrypt.hashSync('sidequest-timing-equaliser', 10);
+
 const registerSchema = z.object({
   email: z
     .string()
@@ -71,8 +81,12 @@ authRouter.post('/login', authLimiter, async (req, res, next) => {
     const { email, password } = loginSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
 
+    // Always run a comparison, even with no user, so the response time does not
+    // reveal whether the account exists.
+    const passwordOk = await bcrypt.compare(password, user?.passwordHash ?? DUMMY_HASH);
+
     // Same response for unknown email and wrong password — no account enumeration.
-    if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
+    if (!user || !passwordOk) {
       res.status(401).json({ error: 'Invalid email or password' });
       return;
     }

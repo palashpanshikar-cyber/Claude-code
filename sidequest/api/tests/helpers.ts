@@ -15,6 +15,7 @@ export { prisma };
 export const app = createApp();
 
 export async function resetDb(): Promise<void> {
+  await prisma.orphanedObject.deleteMany();
   await prisma.streakBreak.deleteMany();
   await prisma.miniAssignment.deleteMany();
   await prisma.completion.deleteMany();
