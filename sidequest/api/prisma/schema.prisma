@@ -35,7 +35,27 @@ model User {
   completions Completion[]
   miniAssignments MiniAssignment[]
 
+  // Phase 2 surfaces these; the table exists now so the follow graph doesn't
+  // need a migration against live data later.
+  following Follow[] @relation("follower")
+  followers Follow[] @relation("followed")
+
   @@index([lastActiveDay])
+}
+
+/// Open follow model — no approval step, matching the product spec.
+/// Unused in Phase 1.
+model Follow {
+  id         String   @id @default(cuid())
+  followerId String
+  followedId String
+  createdAt  DateTime @default(now())
+
+  follower User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  followed User @relation("followed", fields: [followedId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followedId])
+  @@index([followedId])
 }
 
 model Quest {

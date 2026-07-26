@@ -22,11 +22,15 @@ export async function resetDb(): Promise<void> {
   await prisma.miniQuest.deleteMany();
 }
 
-export async function seedQuests(
-  n = 3,
-  overrides: Partial<Quest> = {},
-): Promise<Quest[]> {
-  const categories = ['ADVENTURE', 'FOOD_DRINK', 'CULTURE', 'NATURE', 'FITNESS', 'CREATIVE'] as const;
+export async function seedQuests(n = 3, overrides: Partial<Quest> = {}): Promise<Quest[]> {
+  const categories = [
+    'ADVENTURE',
+    'FOOD_DRINK',
+    'CULTURE',
+    'NATURE',
+    'FITNESS',
+    'CREATIVE',
+  ] as const;
   const quests: Quest[] = [];
   for (let i = 0; i < n; i += 1) {
     quests.push(

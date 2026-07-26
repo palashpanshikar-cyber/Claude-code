@@ -12,9 +12,13 @@ export const config = {
   env: process.env.NODE_ENV ?? 'development',
   port: Number(process.env.PORT ?? 3000),
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
-  jwtSecret: isProd ? required('JWT_SECRET') : (process.env.JWT_SECRET ?? 'dev-secret-change-in-production'),
+  jwtSecret: isProd
+    ? required('JWT_SECRET')
+    : (process.env.JWT_SECRET ?? 'dev-secret-change-in-production'),
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '7d',
   enableCron: process.env.ENABLE_CRON !== 'false',
+  // Enable behind a reverse proxy so rate limiting sees real client IPs.
+  trustProxy: process.env.TRUST_PROXY === 'true',
   storage: {
     // Falls back to local disk when R2 isn't configured, so the API is runnable
     // out of the box without cloud credentials.

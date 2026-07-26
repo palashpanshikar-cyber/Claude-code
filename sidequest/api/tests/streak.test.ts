@@ -32,7 +32,10 @@ test('a brand new user has no streak', () => {
 test('the streak is judged in the user own timezone', () => {
   // 2026-03-10T12:00Z is already Mar 11 in Auckland, so a Mar 10 completion
   // is "yesterday" there — still alive — while for a UTC user it is today.
-  const kiwi = liveStreak({ ...base, timezone: 'Pacific/Auckland', lastActiveDay: '2026-03-10' }, at);
+  const kiwi = liveStreak(
+    { ...base, timezone: 'Pacific/Auckland', lastActiveDay: '2026-03-10' },
+    at,
+  );
   assert.equal(kiwi.today, '2026-03-11');
   assert.equal(kiwi.current, 7);
   assert.equal(kiwi.activeToday, false);

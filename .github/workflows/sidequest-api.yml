@@ -1,0 +1,71 @@
+name: SideQuest API
+
+on:
+  push:
+    paths:
+      - 'sidequest/**'
+      - '.github/workflows/sidequest-api.yml'
+  pull_request:
+    paths:
+      - 'sidequest/**'
+      - '.github/workflows/sidequest-api.yml'
+
+defaults:
+  run:
+    working-directory: sidequest/api
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sidequest_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sidequest_test?schema=public
+      TEST_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/sidequest_test?schema=public
+      JWT_SECRET: ci-secret-not-used-in-production
+      NODE_ENV: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: sidequest/api/package-lock.json
+
+      - run: npm ci
+
+      - run: npx prisma generate
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build

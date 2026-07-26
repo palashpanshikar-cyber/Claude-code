@@ -12,6 +12,10 @@ import { errorHandler, notFound } from './middleware/error.js';
 export function createApp(): Express {
   const app = express();
 
+  // Railway/Render terminate TLS upstream; without this every request's IP is
+  // the load balancer's and the rate limiter keys everyone into one bucket.
+  if (config.trustProxy) app.set('trust proxy', 1);
+
   app.use(cors({ origin: config.corsOrigin }));
   app.use(express.json({ limit: '1mb' }));
 

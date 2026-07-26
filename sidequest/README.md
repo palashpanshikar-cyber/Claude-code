@@ -61,6 +61,8 @@ from `/uploads/...` until you configure R2.
 | `npm start` | run the compiled build |
 | `npm run typecheck` | typecheck `src` and `tests` |
 | `npm test` | full suite against a real Postgres |
+| `npm run lint` / `lint:fix` | ESLint (flat config, typescript-eslint) |
+| `npm run format` / `format:check` | Prettier |
 | `npm run db:migrate` / `db:seed` / `db:studio` | Prisma |
 
 ## Tests
@@ -74,6 +76,25 @@ npm test
 The suite hits real HTTP endpoints against a real Postgres — it covers the whole
 loop (register → feed → complete with photo → streak → minis), not just units.
 Override the test database with `TEST_DATABASE_URL`.
+
+## CI
+
+`.github/workflows/sidequest-api.yml` runs lint, format check, typecheck, tests
+and a build on every push touching `sidequest/`, against a real Postgres service
+container.
+
+## Auth model
+
+Long-lived JWT (`JWT_EXPIRES_IN`, default 7d) with re-login on expiry — **no
+refresh token flow**. A refresh flow buys you short access-token lifetimes and
+server-side revocation; neither matters while the only client is a first-party
+mobile app with no third-party token exposure, and it costs a token store, a
+rotation endpoint and a whole class of replay bugs. Revisit if you add web
+sessions or need instant revocation.
+
+Credential endpoints are rate limited by IP: 10 registrations/hour and 20 login
+attempts/15min. Behind Railway or Render set `TRUST_PROXY=true`, or every
+request looks like it came from the load balancer and all users share one bucket.
 
 ## Phase 1 endpoints
 
@@ -172,3 +193,7 @@ Phase 2 (follow graph, friend feed, tagging, reactions, IG story export) and
 Phase 3 (badges, bucket list, profile prompts, skills) are not started. The rule
 from the build plan holds: no Phase 2 work until 5+ real people have used Phase 1
 unprompted for a week.
+
+One exception: the `Follow` table exists in the schema already, unused. Adding a
+table is free now and a migration against live data later, so it is the one bit
+of Phase 2 worth landing early.

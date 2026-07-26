@@ -5,11 +5,15 @@ import { prisma } from '../lib/prisma.js';
 import { isValidTimezone } from '../lib/day.js';
 import { signToken } from '../middleware/auth.js';
 import { publicUser } from '../lib/serialize.js';
+import { authLimiter, registerLimiter } from '../middleware/rateLimit.js';
 
 export const authRouter = Router();
 
 const registerSchema = z.object({
-  email: z.string().email().transform((v) => v.toLowerCase()),
+  email: z
+    .string()
+    .email()
+    .transform((v) => v.toLowerCase()),
   username: z
     .string()
     .min(3)
@@ -23,7 +27,7 @@ const registerSchema = z.object({
   city: z.string().max(80).nullable().optional(),
 });
 
-authRouter.post('/register', async (req, res, next) => {
+authRouter.post('/register', registerLimiter, async (req, res, next) => {
   try {
     const input = registerSchema.parse(req.body);
 
@@ -55,11 +59,14 @@ authRouter.post('/register', async (req, res, next) => {
 });
 
 const loginSchema = z.object({
-  email: z.string().email().transform((v) => v.toLowerCase()),
+  email: z
+    .string()
+    .email()
+    .transform((v) => v.toLowerCase()),
   password: z.string(),
 });
 
-authRouter.post('/login', async (req, res, next) => {
+authRouter.post('/login', authLimiter, async (req, res, next) => {
   try {
     const { email, password } = loginSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
