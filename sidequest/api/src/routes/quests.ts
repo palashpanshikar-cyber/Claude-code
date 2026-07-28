@@ -6,6 +6,7 @@ import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
 import { requireAdmin } from '../middleware/admin.js';
 import { submissionLimiter } from '../middleware/rateLimit.js';
 import { publicQuest } from '../lib/serialize.js';
+import { assertCursorExists, toPage } from '../lib/pagination.js';
 
 export const questsRouter = Router();
 
@@ -52,12 +53,18 @@ questsRouter.get('/', requireAuth, async (req, res, next) => {
       include: { completions: { where: { userId: user.id }, select: { id: true } } },
     });
 
-    const hasMore = rows.length > q.limit;
-    const page = hasMore ? rows.slice(0, q.limit) : rows;
+    const { items: page, nextCursor } = toPage(rows, q.limit);
+
+    if (page.length === 0) {
+      await assertCursorExists(
+        q.cursor,
+        async (id) => (await prisma.quest.count({ where: { id } })) > 0,
+      );
+    }
 
     res.json({
       quests: page.map((quest) => publicQuest(quest, { completed: quest.completions.length > 0 })),
-      nextCursor: hasMore ? page[page.length - 1]!.id : null,
+      nextCursor,
       appliedCity: city,
     });
   } catch (err) {

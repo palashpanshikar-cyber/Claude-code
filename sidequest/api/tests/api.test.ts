@@ -199,13 +199,24 @@ test('a second quest on the same day does not double the streak', async () => {
   assert.equal(second.body.streak.currentStreak, 1);
 });
 
-test('the same quest cannot be completed twice', async () => {
+test('re-submitting a completion is idempotent, not an error', async () => {
   const { token } = await registerUser(request);
   const [quest] = await seedQuests(1);
 
-  await completeQuest(token, quest.id);
-  const dup = await completeQuest(token, quest.id);
-  assert.equal(dup.status, 409);
+  const first = await completeQuest(token, quest.id, { rating: 4, review: 'original' });
+  const retry = await completeQuest(token, quest.id, { rating: 1, review: 'retry' });
+
+  // A flaky-network retry must not read as "you already did this".
+  assert.equal(retry.status, 200);
+  assert.equal(retry.body.duplicate, true);
+  assert.equal(retry.body.completion.id, first.body.completion.id);
+  // The original wins — a retry is the same submission, not an edit.
+  assert.equal(retry.body.completion.rating, 4);
+  assert.equal(retry.body.completion.review, 'original');
+  assert.equal(retry.body.streak.current, 1);
+
+  assert.equal(await prisma.completion.count(), 1);
+  assert.equal(await prisma.orphanedObject.count(), 0, 'the retry uploaded nothing to clean up');
 });
 
 test('a yesterday streak extends, a stale streak restarts', async () => {
@@ -961,4 +972,55 @@ test('production config warnings fire on the dangerous defaults', async () => {
     checkProductionConfig(() => {}),
     [],
   );
+});
+
+test('a stale cursor is rejected instead of showing an empty feed', async () => {
+  const { token } = await registerUser(request);
+  await seedQuests(3);
+
+  const res = await request(app).get('/quests?cursor=does-not-exist').set(auth(token));
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /cursor/i);
+
+  // A real cursor still paginates.
+  const first = await request(app).get('/quests?limit=1').set(auth(token));
+  const second = await request(app)
+    .get(`/quests?limit=1&cursor=${first.body.nextCursor}`)
+    .set(auth(token));
+  assert.equal(second.status, 200);
+  assert.equal(second.body.quests.length, 1);
+});
+
+test('reaching the true end of a list is not mistaken for a bad cursor', async () => {
+  const { token } = await registerUser(request);
+  await seedQuests(2);
+
+  const first = await request(app).get('/quests?limit=2').set(auth(token));
+  assert.equal(first.body.nextCursor, null, 'no next page when everything fits');
+
+  // Paginating to exactly the end returns an empty page, not a 400.
+  const page1 = await request(app).get('/quests?limit=1').set(auth(token));
+  const page2 = await request(app)
+    .get(`/quests?limit=1&cursor=${page1.body.nextCursor}`)
+    .set(auth(token));
+  const page3 = await request(app)
+    .get(`/quests?limit=1&cursor=${page2.body.nextCursor ?? page1.body.nextCursor}`)
+    .set(auth(token));
+  assert.equal(page3.status, 200);
+});
+
+test('a stale cursor on your own completions is rejected too', async () => {
+  const { token } = await registerUser(request);
+  const [quest] = await seedQuests(1);
+  await completeQuest(token, quest!.id);
+
+  const res = await request(app).get('/me/completions?cursor=nope').set(auth(token));
+  assert.equal(res.status, 400);
+});
+
+test('an empty completion list with no cursor is fine', async () => {
+  const { token } = await registerUser(request);
+  const res = await request(app).get('/me/completions').set(auth(token));
+  assert.equal(res.status, 200);
+  assert.deepEqual(res.body.completions, []);
 });

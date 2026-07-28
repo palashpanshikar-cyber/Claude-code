@@ -9,6 +9,7 @@ import { liveStreak } from '../services/streak.js';
 import { publicCompletion, publicUser, publicUserWithAvatar } from '../lib/serialize.js';
 import { ALLOWED_IMAGE_MIME, photoUrlFor, storePhoto } from '../lib/storage.js';
 import { processImage } from '../lib/images.js';
+import { assertCursorExists, toPage } from '../lib/pagination.js';
 import { uploadLimiter } from '../middleware/rateLimit.js';
 
 export const meRouter = Router();
@@ -76,12 +77,18 @@ meRouter.get('/completions', async (req, res, next) => {
       include: { quest: true },
     });
 
-    const hasMore = rows.length > q.limit;
-    const page = hasMore ? rows.slice(0, q.limit) : rows;
+    const { items: page, nextCursor } = toPage(rows, q.limit);
+
+    if (page.length === 0) {
+      await assertCursorExists(
+        q.cursor,
+        async (id) => (await prisma.completion.count({ where: { id, userId: user.id } })) > 0,
+      );
+    }
 
     res.json({
-      completions: await Promise.all(page.map(publicCompletion)),
-      nextCursor: hasMore ? page[page.length - 1]!.id : null,
+      completions: await Promise.all(page.map((c) => publicCompletion(c))),
+      nextCursor,
     });
   } catch (err) {
     next(err);

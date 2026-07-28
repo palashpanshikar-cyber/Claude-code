@@ -11,6 +11,7 @@ import { usersRouter } from './routes/users.js';
 import { minisRouter } from './routes/minis.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
+import { httpLogger } from './lib/logger.js';
 
 export function createApp(): Express {
   const app = express();
@@ -32,6 +33,7 @@ export function createApp(): Express {
       crossOriginResourcePolicy: { policy: 'cross-origin' },
     }),
   );
+  app.use(httpLogger);
   app.use(cors({ origin: config.corsOrigin }));
   app.use(express.json({ limit: '1mb' }));
   app.use(globalLimiter);

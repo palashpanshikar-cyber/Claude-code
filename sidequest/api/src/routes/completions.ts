@@ -7,7 +7,12 @@ import { localDay } from '../lib/day.js';
 import { ALLOWED_IMAGE_MIME, storePhoto } from '../lib/storage.js';
 import { processImage } from '../lib/images.js';
 import { uploadLimiter } from '../middleware/rateLimit.js';
-import { milestoneReached, recomputeStreak, recordActivity } from '../services/streak.js';
+import {
+  liveStreak,
+  milestoneReached,
+  recomputeStreak,
+  recordActivity,
+} from '../services/streak.js';
 import { publicCompletion, publicUser } from '../lib/serialize.js';
 
 export const completionsRouter = Router();
@@ -30,15 +35,27 @@ const bodySchema = z.object({
   review: z.string().max(1000).optional(),
 });
 
+/**
+ * Logging a completion is idempotent.
+ *
+ * A phone on a patchy connection retries a request that already succeeded.
+ * Answering "you have already completed this quest" for something that worked
+ * is a bug from the user's side, so a repeat returns the completion that
+ * exists, flagged with `duplicate`, rather than an error.
+ */
 completionsRouter.post(
   '/',
   requireAuth,
   uploadLimiter,
   upload.single('photo'),
   async (req, res, next) => {
+    const user = (req as AuthedRequest).user;
+    let questId: string | undefined;
+    let uploadedKey: string | undefined;
+
     try {
-      const user = (req as AuthedRequest).user;
       const input = bodySchema.parse(req.body);
+      questId = input.questId;
 
       if (!req.file) {
         res.status(400).json({ error: 'A photo is required' });
@@ -55,9 +72,16 @@ completionsRouter.post(
 
       const existing = await prisma.completion.findUnique({
         where: { userId_questId: { userId: user.id, questId: quest.id } },
+        include: { quest: true },
       });
       if (existing) {
-        res.status(409).json({ error: 'You have already completed this quest' });
+        // Nothing was uploaded on this path — the check happens before storage.
+        res.status(200).json({
+          completion: await publicCompletion(existing),
+          streak: liveStreak(user),
+          milestone: null,
+          duplicate: true,
+        });
         return;
       }
 
@@ -67,7 +91,7 @@ completionsRouter.post(
 
       // Upload before the transaction: a stray object in R2 is cheaper than a
       // transaction held open across a network call.
-      const photoKey = await storePhoto({
+      uploadedKey = await storePhoto({
         buffer: image.buffer,
         mimetype: image.mimetype,
         userId: user.id,
@@ -80,7 +104,7 @@ completionsRouter.post(
           data: {
             userId: user.id,
             questId: quest.id,
-            photoKey,
+            photoKey: uploadedKey!,
             rating: input.rating,
             review: input.review ?? null,
             localDay: day,
@@ -97,10 +121,34 @@ completionsRouter.post(
         milestone: milestoneReached(streak.currentStreak),
       });
     } catch (err) {
-      // Two devices tapping "complete" at once lose the unique-constraint race.
-      if ((err as { code?: string }).code === 'P2002') {
-        res.status(409).json({ error: 'You have already completed this quest' });
-        return;
+      // Two requests racing past the check above: one wins the unique
+      // constraint, the other lands here with its photo already uploaded.
+      if ((err as { code?: string }).code === 'P2002' && questId) {
+        try {
+          const winner = await prisma.completion.findUniqueOrThrow({
+            where: { userId_questId: { userId: user.id, questId } },
+            include: { quest: true },
+          });
+
+          // The loser's upload is unreachable now — queue it rather than leak it.
+          if (uploadedKey && uploadedKey !== winner.photoKey) {
+            await prisma.orphanedObject.createMany({
+              data: [{ objectKey: uploadedKey }],
+              skipDuplicates: true,
+            });
+          }
+
+          res.status(200).json({
+            completion: await publicCompletion(winner),
+            streak: liveStreak(user),
+            milestone: null,
+            duplicate: true,
+          });
+          return;
+        } catch (lookupErr) {
+          next(lookupErr);
+          return;
+        }
       }
       next(err);
     }

@@ -4,6 +4,7 @@ import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import { liveStreak } from '../services/streak.js';
 import { publicCompletion, publicUser } from '../lib/serialize.js';
+import { assertCursorExists, toPage } from '../lib/pagination.js';
 
 export const usersRouter = Router();
 
@@ -48,8 +49,14 @@ usersRouter.get('/:idOrUsername/profile', requireAuth, async (req, res, next) =>
       }),
     ]);
 
-    const hasMore = rows.length > q.limit;
-    const page = hasMore ? rows.slice(0, q.limit) : rows;
+    const { items: page, nextCursor } = toPage(rows, q.limit);
+
+    if (page.length === 0 && total > 0) {
+      await assertCursorExists(
+        q.cursor,
+        async (id) => (await prisma.completion.count({ where: { id, userId: user.id } })) > 0,
+      );
+    }
 
     // A brand new user has no completions at all — every field below has to
     // hold up against empty, not 500.
@@ -60,8 +67,8 @@ usersRouter.get('/:idOrUsername/profile', requireAuth, async (req, res, next) =>
         completions: total,
         categoriesExplored: new Set(categories.map((c) => c.quest.category)).size,
       },
-      completions: await Promise.all(page.map(publicCompletion)),
-      nextCursor: hasMore ? page[page.length - 1]!.id : null,
+      completions: await Promise.all(page.map((c) => publicCompletion(c))),
+      nextCursor,
     });
   } catch (err) {
     next(err);
