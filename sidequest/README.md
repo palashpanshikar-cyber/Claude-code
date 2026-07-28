@@ -8,7 +8,7 @@ layer, no badges, no bucket list — those are Phase 2/3 and deliberately absent
 ## Stack
 
 - **API:** TypeScript, Node.js, Express, Prisma, PostgreSQL
-- **Mobile:** Expo (React Native) — not started
+- **Mobile:** Expo (React Native) — auth + feed built, completion flow not yet
 - **Storage:** Cloudflare R2 for completion photos (falls back to local disk)
 - **Jobs:** node-cron for the streak sweep and orphaned-photo cleanup
 - **Images:** sharp for resize/re-encode on upload
@@ -21,7 +21,7 @@ sidequest/
 │   ├── prisma/   # schema, migrations, seed content
 │   ├── src/
 │   └── tests/    # 71 tests, unit + HTTP integration
-└── mobile/       # Expo app (not started)
+└── mobile/       # Expo app — see mobile/README.md
 ```
 
 ## Getting started (API)
@@ -275,6 +275,10 @@ still on a development default, and refuses to start at all without a
 `JWT_SECRET`.
 
 ## Not built yet (by design)
+
+The mobile app can sign in, browse quests and show your profile, but **cannot
+log a completion yet** — that flow (camera, review, rating) is the next thing to
+build. Until it exists, Phase 1 still cannot be tested on real people.
 
 Phase 2 (follow graph, friend feed, tagging, reactions, IG story export) and
 Phase 3 (badges, bucket list, profile prompts, skills) are not started. The rule
