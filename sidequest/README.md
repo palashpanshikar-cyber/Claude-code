@@ -20,7 +20,7 @@ sidequest/
 ├── api/          # Express backend (TypeScript, strict)
 │   ├── prisma/   # schema, migrations, seed content
 │   ├── src/
-│   └── tests/    # 71 tests, unit + HTTP integration
+│   └── tests/    # 85 tests, unit + HTTP integration
 └── mobile/       # Expo app — see mobile/README.md
 ```
 
@@ -103,6 +103,28 @@ because a privacy policy promising them has to be backed by endpoints that exist
 Deletion needs the password re-entered — a stolen token shouldn't be enough to
 destroy an account.
 
+## Code layout
+
+Routes stay thin. Anything shared lives one level down:
+
+| Module | Responsibility |
+|--------|----------------|
+| `lib/http.ts` | `AppError` plus `handle`/`authed` wrappers — async errors reach the error handler, and `req.user` is typed without a cast |
+| `lib/pagination.ts` | One cursor scheme for every list endpoint |
+| `lib/serialize.ts` | The only place a database row becomes JSON |
+| `lib/categories.ts` | Single source for the category enum and its labels |
+| `services/` | Streak maths, mini rotation, profile stats — no Express types |
+| `middleware/` | Auth, admin, rate limits, uploads, error handling |
+
+Two rules worth keeping:
+
+- **Only `AppError` messages reach clients.** Anything else becomes a generic
+  string, because Express middleware attaches `status` to its own errors and
+  those messages describe our internals, not the caller's mistake.
+- **One serializer per model.** When a second "user with avatar" variant
+  existed, most endpoints used the plain one and profile photos silently never
+  reached the client.
+
 ## Auth model
 
 Long-lived JWT (`JWT_EXPIRES_IN`, default 7d) with re-login on expiry — **no
@@ -122,7 +144,8 @@ All routes except `/health` and `/auth/*` need `Authorization: Bearer <token>`.
 
 | Method | Route | Description |
 |--------|-------|-------------|
-| GET | `/health` | Liveness check |
+| GET | `/health` | Liveness — is the process up |
+| GET | `/health/ready` | Readiness — can it reach the database |
 | POST | `/auth/register` | Create account |
 | POST | `/auth/login` | Get JWT |
 | GET | `/quests` | Quest feed with filters |

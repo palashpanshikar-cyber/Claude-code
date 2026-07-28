@@ -1024,3 +1024,151 @@ test('an empty completion list with no cursor is fine', async () => {
   assert.equal(res.status, 200);
   assert.deepEqual(res.body.completions, []);
 });
+
+test('malformed JSON does not leak the parser message', async () => {
+  const res = await request(app)
+    .post('/auth/login')
+    .set('Content-Type', 'application/json')
+    .send('{"bad"');
+
+  assert.equal(res.status, 400);
+  // The old handler echoed body-parser's internal text verbatim.
+  assert.equal(res.body.error, 'Malformed request');
+  assert.doesNotMatch(JSON.stringify(res.body), /position \d+|JSON at/i);
+});
+
+test('our own 4xx messages still reach the client', async () => {
+  const { token } = await registerUser(request);
+  const res = await request(app).get('/quests?cursor=nope').set(auth(token));
+  assert.equal(res.status, 400);
+  assert.match(res.body.error, /cursor/i);
+});
+
+test('avatars are visible everywhere a user is serialised', async () => {
+  const { token, user } = await registerUser(request);
+
+  const before = await request(app).get('/me').set(auth(token));
+  assert.equal(before.body.user.avatarUrl, null, 'the field is always present');
+
+  await request(app)
+    .put('/me/avatar')
+    .set(auth(token))
+    .attach('photo', await bigImage(600, 600), { filename: 'a.jpg', contentType: 'image/jpeg' });
+
+  // Previously the upload response was the only place it appeared.
+  const me = await request(app).get('/me').set(auth(token));
+  assert.ok(me.body.user.avatarUrl?.includes('/uploads/avatars/'));
+
+  const profile = await request(app).get(`/users/${user.id}/profile`).set(auth(token));
+  assert.ok(profile.body.user.avatarUrl?.includes('/uploads/avatars/'));
+
+  const completionFeed = await request(app).get('/me/completions').set(auth(token));
+  assert.equal(completionFeed.status, 200);
+});
+
+test('replacing an avatar queues the old one for cleanup', async () => {
+  const { token } = await registerUser(request);
+  const upload = () =>
+    request(app)
+      .put('/me/avatar')
+      .set(auth(token))
+      .attach('photo', PNG_FIXTURE, { filename: 'a.png', contentType: 'image/png' });
+
+  await upload();
+  assert.equal(await prisma.orphanedObject.count(), 0, 'nothing to clean up on the first one');
+
+  await upload();
+  assert.equal(await prisma.orphanedObject.count(), 1, 'the replaced avatar is queued');
+});
+
+test('the feed never reveals who submitted a quest', async () => {
+  const { token: authorToken, user: author } = await registerUser(request);
+  const { token: adminToken, user: admin } = await registerUser(request);
+  const { token: strangerToken } = await registerUser(request);
+  await makeAdmin(admin.id);
+
+  const created = await request(app).post('/quests').set(auth(authorToken)).send({
+    title: 'Swim off the pontoon',
+    description: 'Out to the pontoon and back before the ferry wake hits.',
+    category: 'NATURE',
+  });
+  const id = created.body.quest.id;
+  await request(app)
+    .patch(`/quests/${id}/status`)
+    .set(auth(adminToken))
+    .send({ status: 'APPROVED' });
+
+  const feed = await request(app).get('/quests?city=all').set(auth(strangerToken));
+  const inFeed = feed.body.quests.find((q: FeedQuest) => q.id === id);
+  assert.ok(inFeed, 'it is in the feed');
+  assert.equal(inFeed.createdById, undefined, 'but not who wrote it');
+  assert.equal(inFeed.status, undefined);
+
+  // The author and admins still see the moderation fields.
+  const own = await request(app).get(`/quests/${id}`).set(auth(authorToken));
+  assert.equal(own.body.quest.createdById, author.id);
+  const asAdmin = await request(app).get(`/quests/${id}`).set(auth(adminToken));
+  assert.equal(asAdmin.body.quest.status, 'APPROVED');
+
+  const asStranger = await request(app).get(`/quests/${id}`).set(auth(strangerToken));
+  assert.equal(asStranger.body.quest.createdById, undefined);
+});
+
+test('concurrent signups with the same email both get a clean answer', async () => {
+  const payload = (username: string) => ({
+    email: 'race@test.dev',
+    username,
+    password: 'password123',
+    displayName: 'Racer',
+  });
+
+  const [a, b] = await Promise.all([
+    request(app).post('/auth/register').send(payload('racera')),
+    request(app).post('/auth/register').send(payload('racerb')),
+  ]);
+
+  const statuses = [a.status, b.status].sort();
+  // One wins, the other is told why — neither gets a 500.
+  assert.deepEqual(statuses, [201, 409]);
+  assert.equal(await prisma.user.count({ where: { email: 'race@test.dev' } }), 1);
+});
+
+test('readiness reports the database, liveness does not', async () => {
+  const live = await request(app).get('/health');
+  assert.equal(live.status, 200);
+  assert.equal(live.body.ok, true);
+
+  const ready = await request(app).get('/health/ready');
+  assert.equal(ready.status, 200);
+  assert.equal(ready.body.database, 'up');
+});
+
+test('profile stats agree between /me and the public profile', async () => {
+  const { token, user } = await registerUser(request);
+  const [a, b] = await seedQuests(2);
+  await completeQuest(token, a.id);
+  await completeQuest(token, b.id);
+
+  const me = await request(app).get('/me').set(auth(token));
+  const profile = await request(app).get(`/users/${user.id}/profile`).set(auth(token));
+
+  assert.deepEqual(me.body.stats, profile.body.stats);
+});
+
+test('streak history counts every completion on a day, not just recent rows', async () => {
+  const { token, user } = await registerUser(request);
+  const quests = await seedQuests(5);
+  for (const quest of quests) await completeQuest(token, quest.id);
+
+  const res = await request(app).get('/me/streak').set(auth(token));
+  const today = res.body.today;
+  const entry = res.body.history.find((h: { day: string; count: number }) => h.day === today);
+  assert.equal(entry.count, 5);
+  assert.ok(user.id);
+});
+
+test('an empty PATCH /me is rejected rather than writing nothing', async () => {
+  const { token } = await registerUser(request);
+  const res = await request(app).patch('/me').set(auth(token)).send({});
+  assert.equal(res.status, 400);
+});

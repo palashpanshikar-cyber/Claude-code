@@ -5,6 +5,7 @@ import { prisma } from '../lib/prisma.js';
 import { isValidTimezone } from '../lib/day.js';
 import { signToken } from '../middleware/auth.js';
 import { publicUser } from '../lib/serialize.js';
+import { conflict, handle } from '../lib/http.js';
 import { authLimiter, registerLimiter } from '../middleware/rateLimit.js';
 
 export const authRouter = Router();
@@ -17,7 +18,9 @@ export const authRouter = Router();
  * is a reliable account-enumeration oracle regardless of the identical
  * response body.
  */
-const DUMMY_HASH = bcrypt.hashSync('sidequest-timing-equaliser', 10);
+const BCRYPT_ROUNDS = 12;
+
+const DUMMY_HASH = bcrypt.hashSync('sidequest-timing-equaliser', BCRYPT_ROUNDS);
 
 const registerSchema = z.object({
   email: z
@@ -37,36 +40,49 @@ const registerSchema = z.object({
   city: z.string().max(80).nullable().optional(),
 });
 
-authRouter.post('/register', registerLimiter, async (req, res, next) => {
-  try {
+authRouter.post(
+  '/register',
+  registerLimiter,
+  handle(async (req, res) => {
     const input = registerSchema.parse(req.body);
 
+    // Checked up front so the common case gets a useful message naming the
+    // field. The unique constraint below is what actually guarantees it — two
+    // simultaneous signups both pass this check.
     const clash = await prisma.user.findFirst({
       where: { OR: [{ email: input.email }, { username: input.username }] },
       select: { email: true, username: true },
     });
     if (clash) {
-      const field = clash.email === input.email ? 'Email' : 'Username';
-      res.status(409).json({ error: `${field} already taken` });
-      return;
+      throw conflict(`${clash.email === input.email ? 'Email' : 'Username'} already taken`);
     }
 
-    const user = await prisma.user.create({
+    const user = await createUser(input);
+    res.status(201).json({ token: signToken(user), user: await publicUser(user) });
+  }),
+);
+
+/** Turns the unique-constraint race into the same 409 as the pre-check. */
+async function createUser(input: z.infer<typeof registerSchema>) {
+  try {
+    return await prisma.user.create({
       data: {
         email: input.email,
         username: input.username,
         displayName: input.displayName,
         timezone: input.timezone,
         city: input.city ?? null,
-        passwordHash: await bcrypt.hash(input.password, 10),
+        passwordHash: await bcrypt.hash(input.password, BCRYPT_ROUNDS),
       },
     });
-
-    res.status(201).json({ token: signToken(user), user: publicUser(user) });
   } catch (err) {
-    next(err);
+    if ((err as { code?: string }).code === 'P2002') {
+      const fields = (err as { meta?: { target?: string[] } }).meta?.target ?? [];
+      throw conflict(`${fields.includes('email') ? 'Email' : 'Username'} already taken`);
+    }
+    throw err;
   }
-});
+}
 
 const loginSchema = z.object({
   email: z
@@ -76,8 +92,10 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
-authRouter.post('/login', authLimiter, async (req, res, next) => {
-  try {
+authRouter.post(
+  '/login',
+  authLimiter,
+  handle(async (req, res) => {
     const { email, password } = loginSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email } });
 
@@ -91,8 +109,6 @@ authRouter.post('/login', authLimiter, async (req, res, next) => {
       return;
     }
 
-    res.json({ token: signToken(user), user: publicUser(user) });
-  } catch (err) {
-    next(err);
-  }
-});
+    res.json({ token: signToken(user), user: await publicUser(user) });
+  }),
+);

@@ -1,184 +1,162 @@
 import { Router } from 'express';
-import multer from 'multer';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
-import { requireAuth, type AuthedRequest } from '../middleware/auth.js';
+import { requireAuth } from '../middleware/auth.js';
+import { imageUpload } from '../middleware/upload.js';
 import { isValidTimezone } from '../lib/day.js';
+import { authed, badRequest } from '../lib/http.js';
+import { assertCursorExists, cursorArgs, pageQuerySchema, toPage } from '../lib/pagination.js';
 import { liveStreak } from '../services/streak.js';
-import { publicCompletion, publicUser, publicUserWithAvatar } from '../lib/serialize.js';
-import { ALLOWED_IMAGE_MIME, photoUrlFor, storePhoto } from '../lib/storage.js';
+import { profileStats } from '../services/profile.js';
+import { publicCompletion, publicUser } from '../lib/serialize.js';
+import { photoUrlFor, storePhoto } from '../lib/storage.js';
 import { processImage } from '../lib/images.js';
-import { assertCursorExists, toPage } from '../lib/pagination.js';
 import { uploadLimiter } from '../middleware/rateLimit.js';
 
 export const meRouter = Router();
 
 meRouter.use(requireAuth);
 
-meRouter.get('/', async (req, res, next) => {
-  try {
-    const user = (req as AuthedRequest).user;
-
-    const [completions, categories] = await Promise.all([
-      prisma.completion.count({ where: { userId: user.id } }),
-      prisma.completion.findMany({
-        where: { userId: user.id },
-        select: { quest: { select: { category: true } } },
-        distinct: ['questId'],
-      }),
-    ]);
-
+meRouter.get(
+  '/',
+  authed(async (req, res) => {
     res.json({
-      user: publicUser(user),
-      streak: liveStreak(user),
-      stats: {
-        completions,
-        categoriesExplored: new Set(categories.map((c) => c.quest.category)).size,
-      },
+      user: await publicUser(req.user),
+      streak: liveStreak(req.user),
+      stats: await profileStats(prisma, req.user.id),
     });
-  } catch (err) {
-    next(err);
-  }
-});
+  }),
+);
 
-const profileSchema = z.object({
-  displayName: z.string().min(1).max(60).optional(),
-  city: z.string().max(80).nullable().optional(),
-  timezone: z.string().refine(isValidTimezone, 'Unknown IANA timezone').optional(),
-});
+const profileSchema = z
+  .object({
+    displayName: z.string().min(1).max(60).optional(),
+    city: z.string().max(80).nullable().optional(),
+    timezone: z.string().refine(isValidTimezone, 'Unknown IANA timezone').optional(),
+  })
+  .refine((input) => Object.keys(input).length > 0, 'Nothing to update');
 
-meRouter.patch('/', async (req, res, next) => {
-  try {
-    const user = (req as AuthedRequest).user;
+meRouter.patch(
+  '/',
+  authed(async (req, res) => {
     const input = profileSchema.parse(req.body);
-    const updated = await prisma.user.update({ where: { id: user.id }, data: input });
-    res.json({ user: publicUser(updated) });
-  } catch (err) {
-    next(err);
-  }
-});
+    const updated = await prisma.user.update({ where: { id: req.user.id }, data: input });
+    res.json({ user: await publicUser(updated) });
+  }),
+);
 
-const gridSchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(30),
-  cursor: z.string().optional(),
-});
-
-meRouter.get('/completions', async (req, res, next) => {
-  try {
-    const user = (req as AuthedRequest).user;
-    const q = gridSchema.parse(req.query);
+meRouter.get(
+  '/completions',
+  authed(async (req, res) => {
+    const query = pageQuerySchema.parse(req.query);
 
     const rows = await prisma.completion.findMany({
-      where: { userId: user.id },
-      take: q.limit + 1,
-      ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
+      where: { userId: req.user.id },
+      ...cursorArgs(query),
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       include: { quest: true },
     });
 
-    const { items: page, nextCursor } = toPage(rows, q.limit);
+    const { items, nextCursor } = toPage(rows, query.limit);
 
-    if (page.length === 0) {
+    if (items.length === 0) {
       await assertCursorExists(
-        q.cursor,
-        async (id) => (await prisma.completion.count({ where: { id, userId: user.id } })) > 0,
+        query.cursor,
+        async (id) => (await prisma.completion.count({ where: { id, userId: req.user.id } })) > 0,
       );
     }
 
     res.json({
-      completions: await Promise.all(page.map((c) => publicCompletion(c))),
+      completions: await Promise.all(items.map((c) => publicCompletion(c))),
       nextCursor,
     });
-  } catch (err) {
-    next(err);
-  }
-});
+  }),
+);
 
-meRouter.get('/streak', async (req, res, next) => {
-  try {
-    const user = (req as AuthedRequest).user;
-    const streak = liveStreak(user);
+/** How many days of activity the profile heatmap shows. */
+const HISTORY_DAYS = 30;
 
-    // Last 30 local days of activity — drives the profile heatmap.
-    const recent = await prisma.completion.findMany({
-      where: { userId: user.id },
-      select: { localDay: true },
-      orderBy: { createdAt: 'desc' },
-      take: 200,
+meRouter.get(
+  '/streak',
+  authed(async (req, res) => {
+    // Grouped in the database rather than in memory: pulling the most recent N
+    // rows and counting them here gets the wrong answer for anyone who logs
+    // more than N completions inside the window.
+    const grouped = await prisma.completion.groupBy({
+      by: ['localDay'],
+      where: { userId: req.user.id },
+      _count: { _all: true },
+      orderBy: { localDay: 'desc' },
+      take: HISTORY_DAYS,
     });
-
-    const byDay = new Map<string, number>();
-    for (const { localDay: day } of recent) {
-      byDay.set(day, (byDay.get(day) ?? 0) + 1);
-    }
 
     res.json({
-      ...streak,
-      history: [...byDay.entries()]
-        .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-        .slice(0, 30)
-        .map(([day, count]) => ({ day, count })),
+      ...liveStreak(req.user),
+      history: grouped.map((row) => ({ day: row.localDay, count: row._count._all })),
     });
-  } catch (err) {
-    next(err);
-  }
-});
+  }),
+);
 
-const avatarUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
-  fileFilter: (_req, file, cb) => {
-    if (!ALLOWED_IMAGE_MIME.includes(file.mimetype)) {
-      cb(Object.assign(new Error('Avatar must be JPEG, PNG, WebP or HEIC'), { status: 400 }));
-      return;
-    }
-    cb(null, true);
-  },
-});
-
-meRouter.put('/avatar', uploadLimiter, avatarUpload.single('photo'), async (req, res, next) => {
-  try {
-    const user = (req as AuthedRequest).user;
-
-    if (!req.file) {
-      res.status(400).json({ error: 'A photo is required' });
-      return;
-    }
+meRouter.put(
+  '/avatar',
+  uploadLimiter,
+  imageUpload(),
+  authed(async (req, res) => {
+    if (!req.file) throw badRequest('A photo is required');
 
     const image = await processImage(req.file.buffer, req.file.mimetype, 'avatar');
     const avatarKey = await storePhoto({
       buffer: image.buffer,
       mimetype: image.mimetype,
-      userId: user.id,
+      userId: req.user.id,
       prefix: 'avatars',
     });
 
-    // The previous avatar object is left in the bucket. Deleting it would race
-    // with any client still rendering the old URL, and it costs almost nothing.
-    const updated = await prisma.user.update({
-      where: { id: user.id },
-      data: { avatarKey },
+    const previousKey = req.user.avatarKey;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: req.user.id },
+        data: { avatarKey },
+      });
+      // The replaced avatar is unreachable once the row points elsewhere, so it
+      // goes on the cleanup queue rather than lingering in the bucket forever.
+      if (previousKey) {
+        await tx.orphanedObject.createMany({
+          data: [{ objectKey: previousKey }],
+          skipDuplicates: true,
+        });
+      }
+      return updated;
     });
 
-    res.json({ user: await publicUserWithAvatar(updated) });
-  } catch (err) {
-    next(err);
-  }
-});
+    res.json({ user: await publicUser(updated) });
+  }),
+);
 
-meRouter.delete('/avatar', async (req, res, next) => {
-  try {
-    const user = (req as AuthedRequest).user;
-    const updated = await prisma.user.update({
-      where: { id: user.id },
-      data: { avatarKey: null },
+meRouter.delete(
+  '/avatar',
+  authed(async (req, res) => {
+    const previousKey = req.user.avatarKey;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const updated = await tx.user.update({
+        where: { id: req.user.id },
+        data: { avatarKey: null },
+      });
+      if (previousKey) {
+        await tx.orphanedObject.createMany({
+          data: [{ objectKey: previousKey }],
+          skipDuplicates: true,
+        });
+      }
+      return updated;
     });
-    res.json({ user: await publicUserWithAvatar(updated) });
-  } catch (err) {
-    next(err);
-  }
-});
+
+    res.json({ user: await publicUser(updated) });
+  }),
+);
 
 const deleteAccountSchema = z.object({
   // Re-authentication: a stolen token should not be enough to destroy an
@@ -186,12 +164,12 @@ const deleteAccountSchema = z.object({
   password: z.string().min(1),
 });
 
-meRouter.delete('/', async (req, res, next) => {
-  try {
-    const user = (req as AuthedRequest).user;
+meRouter.delete(
+  '/',
+  authed(async (req, res) => {
     const { password } = deleteAccountSchema.parse(req.body ?? {});
 
-    if (!(await bcrypt.compare(password, user.passwordHash))) {
+    if (!(await bcrypt.compare(password, req.user.passwordHash))) {
       res.status(401).json({ error: 'Password is incorrect' });
       return;
     }
@@ -199,10 +177,13 @@ meRouter.delete('/', async (req, res, next) => {
     // Collect the object keys before the rows cascade away, or the bytes are
     // unreachable and leak forever.
     const photos = await prisma.completion.findMany({
-      where: { userId: user.id },
+      where: { userId: req.user.id },
       select: { photoKey: true },
     });
-    const keys = [...photos.map((p) => p.photoKey), ...(user.avatarKey ? [user.avatarKey] : [])];
+    const keys = [
+      ...photos.map((p) => p.photoKey),
+      ...(req.user.avatarKey ? [req.user.avatarKey] : []),
+    ];
 
     await prisma.$transaction([
       prisma.orphanedObject.createMany({
@@ -212,17 +193,15 @@ meRouter.delete('/', async (req, res, next) => {
       // Completions, mini assignments, streak breaks and follows all cascade.
       // Quests they submitted survive with createdById set to null — an approved
       // quest is content other people are mid-way through, not personal data.
-      prisma.user.delete({ where: { id: user.id } }),
+      prisma.user.delete({ where: { id: req.user.id } }),
     ]);
 
     // The bytes go on a queue rather than being deleted inline: the account
     // delete must succeed even if object storage is unreachable, or a user who
     // wants out cannot get out. See sweepOrphanedObjects.
     res.json({ deleted: true, objectsQueued: keys.length });
-  } catch (err) {
-    next(err);
-  }
-});
+  }),
+);
 
 /**
  * Everything held about the caller, in one response.
@@ -230,24 +209,23 @@ meRouter.delete('/', async (req, res, next) => {
  * Deliberately built from the same rows the app reads rather than a curated
  * subset — an export that omits something is worse than none at all.
  */
-meRouter.get('/export', async (req, res, next) => {
-  try {
-    const user = (req as AuthedRequest).user;
-
+meRouter.get(
+  '/export',
+  authed(async (req, res) => {
     const [completions, minis, breaks, submissions] = await Promise.all([
       prisma.completion.findMany({
-        where: { userId: user.id },
+        where: { userId: req.user.id },
         include: { quest: { select: { title: true, category: true, city: true } } },
         orderBy: { createdAt: 'asc' },
       }),
       prisma.miniAssignment.findMany({
-        where: { userId: user.id },
+        where: { userId: req.user.id },
         include: { miniQuest: { select: { title: true, prompt: true } } },
         orderBy: { createdAt: 'asc' },
       }),
-      prisma.streakBreak.findMany({ where: { userId: user.id }, orderBy: { brokenAt: 'asc' } }),
+      prisma.streakBreak.findMany({ where: { userId: req.user.id }, orderBy: { brokenAt: 'asc' } }),
       prisma.quest.findMany({
-        where: { createdById: user.id },
+        where: { createdById: req.user.id },
         select: { id: true, title: true, description: true, status: true, createdAt: true },
       }),
     ]);
@@ -256,16 +234,16 @@ meRouter.get('/export', async (req, res, next) => {
     res.json({
       exportedAt: new Date().toISOString(),
       account: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        displayName: user.displayName,
-        city: user.city,
-        timezone: user.timezone,
-        createdAt: user.createdAt,
-        currentStreak: user.currentStreak,
-        longestStreak: user.longestStreak,
-        lastActiveDay: user.lastActiveDay,
+        id: req.user.id,
+        email: req.user.email,
+        username: req.user.username,
+        displayName: req.user.displayName,
+        city: req.user.city,
+        timezone: req.user.timezone,
+        createdAt: req.user.createdAt,
+        currentStreak: req.user.currentStreak,
+        longestStreak: req.user.longestStreak,
+        lastActiveDay: req.user.lastActiveDay,
       },
       completions: await Promise.all(
         completions.map(async (c) => ({
@@ -293,7 +271,5 @@ meRouter.get('/export', async (req, res, next) => {
       })),
       submittedQuests: submissions,
     });
-  } catch (err) {
-    next(err);
-  }
-});
+  }),
+);

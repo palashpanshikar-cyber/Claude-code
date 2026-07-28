@@ -1,4 +1,5 @@
 import sharp from 'sharp';
+import { badRequest } from './http.js';
 
 export interface ProcessedImage {
   buffer: Buffer;
@@ -62,7 +63,7 @@ export async function processImage(
     // A pixel-limit breach is hostile input, not an unusual camera format, and
     // must not fall through to storing the original bytes.
     if (err instanceof Error && /pixel|limitInputPixels/i.test(err.message)) {
-      throw Object.assign(new Error('Image dimensions are too large'), { status: 400 });
+      throw badRequest('Image dimensions are too large');
     }
     // A format sharp cannot decode is not a reason to lose the user's photo —
     // they already did the quest. Store the original and move on.

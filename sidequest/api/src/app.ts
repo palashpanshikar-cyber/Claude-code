@@ -11,7 +11,9 @@ import { usersRouter } from './routes/users.js';
 import { minisRouter } from './routes/minis.js';
 import { errorHandler, notFound } from './middleware/error.js';
 import { globalLimiter } from './middleware/rateLimit.js';
-import { httpLogger } from './lib/logger.js';
+import { httpLogger, logger } from './lib/logger.js';
+import { handle } from './lib/http.js';
+import { prisma } from './lib/prisma.js';
 
 export function createApp(): Express {
   const app = express();
@@ -38,9 +40,26 @@ export function createApp(): Express {
   app.use(express.json({ limit: '1mb' }));
   app.use(globalLimiter);
 
+  // Liveness only — is the process up and serving?
   app.get('/health', (_req, res) => {
     res.json({ ok: true });
   });
+
+  // Readiness — can it actually do its job? A health check that ignores the
+  // database reports green while every real request 500s, which is worse than
+  // no check at all because it makes the platform stop asking.
+  app.get(
+    '/health/ready',
+    handle(async (_req, res) => {
+      try {
+        await prisma.$queryRaw`SELECT 1`;
+        res.json({ ok: true, database: 'up' });
+      } catch (err) {
+        logger.error({ err }, 'readiness check failed');
+        res.status(503).json({ ok: false, database: 'down' });
+      }
+    }),
+  );
 
   app.use('/auth', authRouter);
   app.use('/quests', questsRouter);

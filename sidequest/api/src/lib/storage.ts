@@ -9,6 +9,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { config } from './config.js';
+import { badRequest } from './http.js';
 
 const EXT_BY_MIME: Record<string, string> = {
   'image/jpeg': 'jpg',
@@ -57,7 +58,7 @@ export async function storePhoto({
 }): Promise<string> {
   const ext = EXT_BY_MIME[mimetype];
   if (!ext) {
-    throw Object.assign(new Error(`Unsupported image type: ${mimetype}`), { status: 400 });
+    throw badRequest(`Unsupported image type: ${mimetype}`);
   }
 
   const key = `${prefix}/${userId}/${randomUUID()}.${ext}`;
