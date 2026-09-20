@@ -43,6 +43,13 @@ export function createApp(services: Services, options: CreateAppOptions = {}): E
     res.json({
       status: 'ok',
       serverTime: iso(),
+      // Echo the settings actually in force. Environment variables are easy to
+      // set in a shell that the server never sees; this makes that visible
+      // instead of leaving it to be inferred from how fast the map moves.
+      simulation: {
+        ...services.simulation.settings,
+        loopMinutes: Math.round(services.simulation.loopSeconds() / 60),
+      },
       fleet: {
         size: services.simulation.fleetSize,
         active: services.simulation.activeShuttleCount(),

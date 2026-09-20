@@ -62,9 +62,22 @@ endpoints. Responses carry `RateLimit-Limit`, `RateLimit-Remaining` and
 {
   "status": "ok",
   "serverTime": "2026-09-20T14:30:39.305Z",
+  "simulation": {
+    "timeScale": 1,
+    "fleetSize": 6,
+    "capacity": 12,
+    "shuttleSpeedMph": 11,
+    "stopDwellSeconds": 30,
+    "loopMinutes": 26
+  },
   "fleet": { "size": 6, "active": 6, "passengersOnboard": 28 }
 }
 ```
+
+`simulation` echoes the settings the running server is actually using, not what
+the configuration files say. If an environment variable did not reach the
+process, this is where you will see it — check here before concluding a setting
+has no effect.
 
 ---
 

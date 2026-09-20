@@ -128,6 +128,7 @@ export class NetworkSimulation {
   private readonly shuttles: Shuttle[] = [];
   private readonly rng: Rng;
   private readonly dwellSeconds: number;
+  private readonly cruiseSpeedMph: number;
   private readonly timeScale: number;
   private readonly clock: () => number;
   private lastTickAt: number;
@@ -137,6 +138,7 @@ export class NetworkSimulation {
     const fleetSize = Math.max(1, Math.floor(options.fleetSize ?? config.fleetSize));
     const capacity = Math.max(1, Math.floor(options.capacity ?? config.shuttleCapacity));
     const speedMph = options.speedMph ?? config.shuttleSpeedMph;
+    this.cruiseSpeedMph = speedMph;
     this.dwellSeconds = options.dwellSeconds ?? config.stopDwellSeconds;
     this.timeScale = Math.max(0.1, options.timeScale ?? config.timeScale);
     this.clock = options.clock ?? currentTime;
@@ -420,6 +422,23 @@ export class NetworkSimulation {
   /** Simulated seconds per wall-clock second. */
   get scale(): number {
     return this.timeScale;
+  }
+
+  /** The settings this simulation is actually running with. */
+  get settings(): {
+    timeScale: number;
+    fleetSize: number;
+    capacity: number;
+    shuttleSpeedMph: number;
+    stopDwellSeconds: number;
+  } {
+    return {
+      timeScale: this.timeScale,
+      fleetSize: this.shuttles.length,
+      capacity: this.shuttles[0]?.capacity ?? config.shuttleCapacity,
+      shuttleSpeedMph: this.cruiseSpeedMph,
+      stopDwellSeconds: this.dwellSeconds,
+    };
   }
 
   /** Half a dwell on the wall clock — the Arrived/Boarding split point. */

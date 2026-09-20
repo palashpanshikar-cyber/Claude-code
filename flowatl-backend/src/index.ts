@@ -7,9 +7,12 @@ services.start();
 
 const app = createApp(services);
 const server = app.listen(config.port, config.host, () => {
+  // Name the time scale in the banner: a demo running at 1x when someone
+  // meant to compress it is otherwise only noticeable ten minutes later.
+  const speed = config.timeScale === 1 ? 'real time' : `${config.timeScale}x speed`;
   console.log(
     `FlowATL backend listening on http://${config.host}:${config.port} ` +
-      `(${services.simulation.fleetSize} shuttles, ${config.nodeEnv})`,
+      `(${services.simulation.fleetSize} shuttles, ${speed}, ${config.nodeEnv})`,
   );
 });
 

@@ -55,6 +55,14 @@ describe('health and network', () => {
     assert.equal(body.fleet.size, 4);
   });
 
+  it('reports the settings actually in force, so a misread env var is visible', async () => {
+    const { body } = await call('/health');
+    assert.equal(body.simulation.timeScale, 1, 'no TIME_SCALE set in tests');
+    assert.equal(body.simulation.fleetSize, 4);
+    assert.ok(body.simulation.loopMinutes > 0);
+    assert.ok(body.simulation.shuttleSpeedMph > 0);
+  });
+
   it('serves the route the client draws', async () => {
     const { status, body } = await call('/api/network/route');
     assert.equal(status, 200);

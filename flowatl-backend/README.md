@@ -43,6 +43,9 @@ cp .env.example .env     # optional — the defaults work
 npm run dev              # http://localhost:4000
 ```
 
+A `.env` file in this directory is read at startup. Real environment variables
+take precedence over it, so the file is a safe place to keep local settings.
+
 ```bash
 curl localhost:4000/health
 curl localhost:4000/api/network/stops/five-points/arrivals
@@ -83,7 +86,8 @@ curl -N "$BASE/api/stream?topics=shuttles,impact"
 
 ## Configuration
 
-Everything is environment-driven; see `.env.example` for the annotated list.
+Settings come from a `.env` file in this directory or from real environment
+variables, which win over the file. See `.env.example` for the annotated list.
 The ones worth knowing:
 
 | Variable | Default | Notes |
@@ -98,6 +102,18 @@ The ones worth knowing:
 | `STOP_DWELL_SECONDS` | `30` | Boarding time at each stop |
 | `TIME_SCALE` | `1` | Fast-forwards the whole world — driving, dwell, charging and freight |
 | `SIM_SEED` | `20260920` | Fixed seed — the same seed replays the same network |
+
+Whatever the server ends up using is reported by `GET /health` and printed in
+its startup banner:
+
+```
+FlowATL backend listening on http://0.0.0.0:4000 (6 shuttles, 20x speed, development)
+```
+
+If a setting appears to have no effect, check there first — shells differ in
+how they set variables for a child process (`FOO=1 npm run dev` in bash,
+`$env:FOO=1` in PowerShell, and neither is inherited by a terminal you opened
+earlier). Putting the value in `.env` avoids the question entirely.
 
 With the defaults the loop is about **4.3 miles**, a lap takes **~26 minutes**, and
 six shuttles give a **~4.4 minute headway** — so the "Next Shuttle" countdown
